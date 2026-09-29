@@ -4,7 +4,14 @@ A canonical text form for states, situations and actions (SPEC F6). It is used i
 interfaces. The formatted bytes are stable across versions and are pinned by the golden tests in
 `crates/yatzy-solver/tests/notation.rs`; changing them is a breaking change.
 
-The notation is always read against a variant, which gives the category ids and the number of dice.
+The notation is always read against a variant, which gives the category ids and the number of dice. Golden
+tests pin the bytes for every built-in variant.
+
+Example, American rules:
+
+```text
+dice 2 2 2 2 2 | rolls 1 | upper 12 | filled twos,full_house,five_of_a_kind | five_of_a_kind 50
+```
 
 ## State (between turns)
 
@@ -14,8 +21,9 @@ upper 21 | filled ones,twos,chance
 
 - `upper <n>`: the upper-section total so far, not capped (0 to 105).
 - `filled <ids>`: the filled categories, comma-separated without spaces, in score-card order; `-` when none.
-- In a variant with a Yahtzee bonus, when the Yahtzee box is filled, a third field `yahtzee_box 50` (the box
-  holds its full points, so further Yahtzees earn the bonus) or `yahtzee_box 0` (it was scratched). The field is
+- In a variant with a five-of-a-kind bonus (American rules), when the five-of-a-kind box is filled, a third field
+  `five_of_a_kind 50` (the box holds its full points, so further five of a kinds earn the bonus) or
+  `five_of_a_kind 0` (it was scratched). The field is
   absent while the box is open.
 
 The score so far is not part of the state: it does not affect any decision. Exports record it separately.

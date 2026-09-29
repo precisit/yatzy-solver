@@ -8,6 +8,8 @@
 //! - [`notation`]: the canonical text form of states, situations and actions.
 //! - [`solver`]: the exact solver (backward induction) and the within-turn values derived from its table.
 //! - [`table`]: the table file format.
+//! - [`query`]: the value of every option in a situation, best options, regret, batch queries.
+//! - [`simulate`]: seeded games under the optimal policy or a caller's policy.
 //! - [`verify`]: the brute-force reference solver, reduced games and published values (feature `verify`).
 //!
 //! ```
@@ -23,7 +25,9 @@
 
 pub mod dice;
 pub mod notation;
+pub mod query;
 pub mod rules;
+pub mod simulate;
 pub mod solver;
 pub mod table;
 pub mod value;
@@ -33,7 +37,9 @@ pub mod verify;
 
 pub use dice::Dice;
 pub use notation::NotationError;
+pub use query::{OptionValue, Solver};
 pub use rules::{Action, Game, RulesError, Scored, Situation, State};
+pub use simulate::{Policy, Rng};
 pub use solver::{StateSpace, TurnModel};
 pub use table::{Precision, Table};
 pub use variant::{HouseRules, JokerRule, Variant, VariantDef};

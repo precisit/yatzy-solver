@@ -20,7 +20,7 @@ fn choices(v: &Variant, s: &State, d: &str) -> Vec<(String, u16, u16, u16)> {
     v.score_choices(s, &dice(d))
         .unwrap()
         .into_iter()
-        .map(|x| (v.categories()[x.category].id.clone(), x.points, x.upper_bonus, x.yahtzee_bonus))
+        .map(|x| (v.categories()[x.category].id.clone(), x.points, x.upper_bonus, x.all_same_bonus))
         .collect()
 }
 
@@ -78,7 +78,7 @@ fn game_total_includes_bonuses() {
 fn free_joker_verhoeff() {
     let v = Variant::american();
     // Yahtzee box holds 50, Fives open: free placement, the bonus everywhere, no joker points.
-    let s = state(&v, "upper 0 | filled yahtzee | yahtzee_box 50");
+    let s = state(&v, "upper 0 | filled five_of_a_kind | five_of_a_kind 50");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "fives"), Some((25, 0, 100)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((0, 0, 100)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "large_straight"), Some((0, 0, 100)));
@@ -86,27 +86,27 @@ fn free_joker_verhoeff() {
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "ones"), Some((0, 0, 100)));
     assert_eq!(choices(&v, &s, "5 5 5 5 5").len(), 12);
     // Fives filled: the joker applies.
-    let s = state(&v, "upper 20 | filled fives,yahtzee | yahtzee_box 50");
+    let s = state(&v, "upper 20 | filled fives,five_of_a_kind | five_of_a_kind 50");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((25, 0, 100)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "small_straight"), Some((30, 0, 100)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "large_straight"), Some((40, 0, 100)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "ones"), Some((0, 0, 100)));
     // Yahtzee box scratched: the joker still applies, no bonus.
-    let s = state(&v, "upper 20 | filled fives,yahtzee | yahtzee_box 0");
+    let s = state(&v, "upper 20 | filled fives,five_of_a_kind | five_of_a_kind 0");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((25, 0, 0)));
     // Yahtzee box open: no joker, no bonus.
     let s = state(&v, "upper 20 | filled fives");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((0, 0, 0)));
-    assert_eq!(choice(&v, &s, "5 5 5 5 5", "yahtzee"), Some((50, 0, 0)));
+    assert_eq!(choice(&v, &s, "5 5 5 5 5", "five_of_a_kind"), Some((50, 0, 0)));
 }
 
 #[test]
 fn forced_joker_official() {
-    let v = Variant::by_id("yahtzee+forced-joker").unwrap();
-    let s = state(&v, "upper 0 | filled yahtzee | yahtzee_box 50");
+    let v = Variant::by_id("american+forced-joker").unwrap();
+    let s = state(&v, "upper 0 | filled five_of_a_kind | five_of_a_kind 50");
     assert_eq!(choices(&v, &s, "5 5 5 5 5"), vec![("fives".to_string(), 25, 0, 100)]);
     // Own upper box filled: any open lower box, with joker points.
-    let s = state(&v, "upper 20 | filled fives,yahtzee | yahtzee_box 50");
+    let s = state(&v, "upper 20 | filled fives,five_of_a_kind | five_of_a_kind 50");
     let got: Vec<String> = choices(&v, &s, "5 5 5 5 5").into_iter().map(|c| c.0).collect();
     assert_eq!(got, ["three_of_a_kind", "four_of_a_kind", "full_house", "small_straight", "large_straight", "chance"]);
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "large_straight"), Some((40, 0, 100)));
@@ -114,35 +114,35 @@ fn forced_joker_official() {
     // Only upper boxes left: any of them, for 0 (plus the bonus).
     let s = state(
         &v,
-        "upper 20 | filled fives,three_of_a_kind,four_of_a_kind,full_house,small_straight,large_straight,yahtzee,chance | yahtzee_box 0",
+        "upper 20 | filled fives,three_of_a_kind,four_of_a_kind,full_house,small_straight,large_straight,five_of_a_kind,chance | five_of_a_kind 0",
     );
     assert_eq!(choices(&v, &s, "5 5 5 5 5").len(), 5);
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "sixes"), Some((0, 0, 0)));
     // The upper bonus can be reached with a forced joker.
-    let s = state(&v, "upper 38 | filled ones,twos,threes,fours,yahtzee | yahtzee_box 50");
+    let s = state(&v, "upper 38 | filled ones,twos,threes,fours,five_of_a_kind | five_of_a_kind 50");
     assert_eq!(choices(&v, &s, "5 5 5 5 5"), vec![("fives".to_string(), 25, 35, 100)]);
 }
 
 #[test]
 fn no_joker_and_no_bonus() {
-    let v = Variant::by_id("yahtzee+no-joker").unwrap();
-    let s = state(&v, "upper 20 | filled fives,yahtzee | yahtzee_box 50");
+    let v = Variant::by_id("american+no-joker").unwrap();
+    let s = state(&v, "upper 20 | filled fives,five_of_a_kind | five_of_a_kind 50");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((0, 0, 100)));
-    let v = Variant::by_id("yahtzee+no-bonus").unwrap();
-    let s = state(&v, "upper 20 | filled fives,yahtzee");
+    let v = Variant::by_id("american+no-bonus").unwrap();
+    let s = state(&v, "upper 20 | filled fives,five_of_a_kind");
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "full_house"), Some((0, 0, 0)));
     assert_eq!(choice(&v, &s, "5 5 5 5 5", "chance"), Some((25, 0, 0)));
-    assert_eq!(v.format_state(&s), "upper 20 | filled fives,yahtzee");
+    assert_eq!(v.format_state(&s), "upper 20 | filled fives,five_of_a_kind");
 }
 
 #[test]
-fn yahtzee_box_status_follows_the_score() {
+fn all_same_box_status_follows_the_score() {
     let v = Variant::american();
-    let y = cat(&v, "yahtzee");
+    let y = cat(&v, "five_of_a_kind");
     let (s, _) = v.apply_score(&State::new(), &dice("2 2 2 2 2"), y).unwrap();
-    assert!(s.yahtzee_armed);
+    assert!(s.bonus_armed);
     let (s, _) = v.apply_score(&State::new(), &dice("2 2 2 2 1"), y).unwrap();
-    assert!(!s.yahtzee_armed && s.is_filled(y));
+    assert!(!s.bonus_armed && s.is_filled(y));
 }
 
 #[test]

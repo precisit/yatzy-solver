@@ -35,7 +35,7 @@ fn max_remaining(v: &Variant, s: &State) -> f64 {
     }
     let open = (v.all_mask() & !s.filled).count_ones();
     m + v.upper_bonus().map_or(0.0, |b| f64::from(b.points))
-        + v.yahtzee_bonus().map_or(0.0, |b| f64::from(b.points) * f64::from(open))
+        + v.all_same_bonus().map_or(0.0, |b| f64::from(b.points) * f64::from(open))
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn reroll_probabilities_sum_to_one() {
     assert!((m.roll_expectation(&ones) - 1.0).abs() < 1e-15);
     // Keep values of a constant hand value are that constant.
     let tv = m.turn_values(
-        &State { filled: v.all_mask() & !1, upper: 0, yahtzee_armed: false },
+        &State { filled: v.all_mask() & !1, upper: 0, bonus_armed: false },
         &vec![0.0; StateSpace::of(&v).len()],
     );
     // Only Ones is open: the final hand value is the number of ones, with expectation 5/6 from scratch.
@@ -56,15 +56,15 @@ fn reroll_probabilities_sum_to_one() {
 
 #[test]
 fn values_are_bounded_monotone_and_consistent() {
-    for id in ["yahtzee", "yatzy-scandinavian"] {
+    for id in ["american", "yatzy-scandinavian"] {
         let (v, m, t) = solved(id);
         let sp = m.space();
         let mut rng = Rng(12345);
         for _ in 0..3000 {
             let filled = rng.below(1 << v.num_categories()) as u32;
             let upper = if filled & v.upper_mask() != 0 { rng.below(64) as u16 } else { 0 };
-            let yfilled = v.yahtzee_box().is_some_and(|y| filled & (1 << y) != 0);
-            let s = State { filled, upper, yahtzee_armed: yfilled && rng.below(2) == 1 };
+            let yfilled = v.all_same_box().is_some_and(|y| filled & (1 << y) != 0);
+            let s = State { filled, upper, bonus_armed: yfilled && rng.below(2) == 1 };
             let x = t[sp.index(&s)];
             // Bounded.
             assert!(x >= 0.0 && x <= max_remaining(&v, &s) + 1e-9, "{id}: {} = {x}", v.format_state(&s));
@@ -79,7 +79,7 @@ fn values_are_bounded_monotone_and_consistent() {
             }
             // An open category is worth something: filling it first cannot help.
             for c in 0..v.num_categories() {
-                if !s.is_filled(c) && Some(c) != v.yahtzee_box() {
+                if !s.is_filled(c) && Some(c) != v.all_same_box() {
                     assert!(t[sp.index(&State { filled: filled | 1 << c, ..s })] <= x + 1e-9);
                 }
             }

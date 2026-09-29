@@ -8,15 +8,22 @@ WebAssembly bindings.
 
 ## Validation
 
-| variant | this solver | published |
+| variant | this solver | reference |
 | --- | --- | --- |
 | American rules (Yahtzee-compatible) | 254.5896095 | 254.5896 (Verhoeff, Glenn) |
-| American rules without Yahtzee bonus and joker | 245.8707745 | 245.87 (Verhoeff, Glenn) |
-| Scandinavian Yatzy | 248.4399894 | 248.63 (Larsson and Sjöberg 2012), see below |
+| American rules without the five-of-a-kind bonus and joker | 245.8707745 | 245.87 (Verhoeff, Glenn) |
+| Scandinavian Yatzy | 248.4399894 | 248.4394 (Castux/yahtzee), about 248.44 (Laurii1i/Yatzy) |
 
-The published Scandinavian 248.63 was computed by code that lets a single pair score in Two pairs; with that
-scoring this solver gives 248.6328539. Under the stated rules the value is 248.44, which two independent
-open-source solvers confirm. Details in [docs/rules.md](docs/rules.md).
+Castux's 248.4394 differs in the fourth decimal because that solver computes in single precision: its dice
+outcome probabilities are built by adding `(float)(1 / 6^n)` per ordered roll, so the five-dice distribution
+sums to 0.9999997, and a little value leaks at every expectation. The rules are the same.
+
+**About the published 248.63.** The Scandinavian value usually cited, 248.63 (Larsson and Sjöberg, KTH 2012),
+comes from a bug in the authors' code, not from their rules. Their stated rules match ours. Their published Java
+code ([ansjob/optimalt-yatzy](https://github.com/ansjob/optimalt-yatzy), `ScoreCard.java`, function
+`scorePair`) scores Two pairs as twice the highest pair plus twice the second pair, adding 0 when there is no
+second pair, so a hand with a single pair scores in Two pairs. With that scoring this solver gives 248.6328539,
+which rounds to 248.63; `verify` checks this too. Details in [docs/rules.md](docs/rules.md).
 
 A brute-force reference solver checks the fast solver exactly, in rational arithmetic, on reduced games. To
 reproduce everything:
@@ -30,12 +37,15 @@ cargo run --release -p yatzy-solver-cli -- verify
 - [Rules](docs/rules.md): the variants, house-rule switches and joker rules.
 - [Notation](docs/notation.md): the stable text form of situations and actions.
 - [Solver](docs/solver.md): the method, verification, table format and performance.
+- [Queries and simulation](docs/queries.md): option values, best options, regret, batch queries, the seeded
+  simulator and its generator.
 
 ## Command line
 
 ```sh
 yatzy-solver build --variant yatzy-scandinavian          # writes tables/yatzy-scandinavian.f32.yzt
-yatzy-solver query "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -"
+yatzy-solver query "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -"   # every option, its value and regret
+yatzy-solver simulate --variant american --games 1000000 --seed 2026
 yatzy-solver verify
 ```
 
@@ -45,7 +55,7 @@ yatzy-solver verify
   ([trivia page](https://www-set.win.tue.nl/~wstomv/misc/yahtzee/trivia.html)).
 - James Glenn solved it independently and described symmetry optimizations
   ([Computer Strategies for Solitaire Yahtzee, CIG 2007](http://www.cs.loyola.edu/~jglenn/Papers/yahtzee_cig2007_glenn.pdf)).
-- Scandinavian Yatzy was solved by Larsson and Sjöberg (KTH, 2012), expected score 248.63
+- Scandinavian Yatzy was solved by Larsson and Sjöberg (KTH, 2012), published expected score 248.63 (see above)
   ([report](https://www.csc.kth.se/utbildning/kth/kurser/DD143X/dkand12/Group89Michael/report/Larsson+Sjoberg.pdf)),
   and studied by Sederblad and Törnebohm (KTH, 2013,
   [report](https://www.diva-portal.org/smash/get/diva2:676659/FULLTEXT01.pdf)).

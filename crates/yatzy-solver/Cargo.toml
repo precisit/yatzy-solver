@@ -8,7 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["parallel", "verify"]
+default = ["parallel"]
 # Solve layers on all cores.
 parallel = ["dep:rayon"]
 # Exact rational arithmetic and the brute-force reference solver.

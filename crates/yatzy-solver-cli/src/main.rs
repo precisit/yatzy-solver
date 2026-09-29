@@ -1,4 +1,4 @@
-//! `yatzy-solver build | query | verify`.
+//! `yatzy-solver build | query | simulate | verify`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -6,9 +6,10 @@ use std::time::Instant;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use num_rational::BigRational;
+use yatzy_solver::simulate::{RandomPolicy, simulate};
 use yatzy_solver::table::hex;
 use yatzy_solver::verify::{BruteForce, PUBLISHED, reduced_variants};
-use yatzy_solver::{Precision, State, Table, TurnModel, Variant};
+use yatzy_solver::{Action, Precision, Solver, State, Table, TurnModel, Variant};
 
 #[derive(Parser)]
 #[command(name = "yatzy-solver", version, about = "Exact solver for Scandinavian Yatzy and American rules")]
@@ -23,11 +24,17 @@ enum Prec {
     F64,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum PolicyArg {
+    Optimal,
+    Random,
+}
+
 #[derive(Subcommand)]
 enum Command {
     /// Solve a variant and write its table.
     Build {
-        /// Variant id, e.g. yatzy-scandinavian or yahtzee.
+        /// Variant id, e.g. yatzy-scandinavian or american.
         #[arg(long, default_value = Variant::SCANDINAVIAN)]
         variant: String,
         #[arg(long, value_enum, default_value = "f32")]
@@ -46,6 +53,23 @@ enum Command {
         /// A situation in the stable notation, e.g. "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -".
         situation: String,
     },
+    /// Play games with a seeded generator and summarize the scores.
+    Simulate {
+        #[arg(long, default_value = Variant::SCANDINAVIAN)]
+        variant: String,
+        /// Table file; by default the variant is solved in memory.
+        #[arg(long)]
+        table: Option<PathBuf>,
+        #[arg(long, default_value_t = 100_000)]
+        games: u64,
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        #[arg(long, value_enum, default_value = "optimal")]
+        policy: PolicyArg,
+        /// Write one JSON object per game (decisions in the stable notation) to this file.
+        #[arg(long)]
+        log: Option<PathBuf>,
+    },
     /// Check the solver: the brute-force cross-check on reduced games, then the published values.
     Verify {
         /// Skip solving the full variants.
@@ -61,6 +85,17 @@ fn variant(id: &str) -> Result<Variant, String> {
 fn default_path(id: &str, p: Precision) -> PathBuf {
     let ext = if p == Precision::F32 { "f32" } else { "f64" };
     PathBuf::from("tables").join(format!("{id}.{ext}.yzt"))
+}
+
+/// A solver from a table file, or solved in memory when no file is given.
+fn solver(v: &Variant, table: Option<PathBuf>) -> Result<Solver, String> {
+    match table {
+        Some(path) => {
+            let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            Ok(Solver::from_table(&Table::from_bytes(&bytes, v).map_err(|e| e.to_string())?))
+        }
+        None => Ok(Solver::build(v)),
+    }
 }
 
 fn run(cli: Cli) -> Result<bool, String> {
@@ -93,16 +128,80 @@ fn run(cli: Cli) -> Result<bool, String> {
         Command::Query { variant: id, table, situation } => {
             let v = variant(&id)?;
             let path = table.unwrap_or_else(|| default_path(&id, Precision::F32));
-            let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-            let table = Table::from_bytes(&bytes, &v).map_err(|e| e.to_string())?;
+            let solver = solver(&v, Some(path))?;
             let sit = v.parse_situation(&situation).map_err(|e| e.to_string())?;
-            let model = TurnModel::new(&v);
-            let mut vals = model.action_values(&sit, table.values());
-            vals.sort_by(|a, b| b.1.total_cmp(&a.1));
-            let best = vals[0].1;
+            let mut options = solver.option_values(&sit).map_err(|e| e.to_string())?;
+            let best: Vec<Action> =
+                solver.best_options(&sit).map_err(|e| e.to_string())?.iter().map(|o| o.action).collect();
+            options.sort_by(|a, b| b.value.total_cmp(&a.value));
             println!("{}", v.format_situation(&sit));
-            for (a, x) in vals {
-                println!("{:>12.6} {:>10.6}  {}", x, best - x, v.format_action(&a));
+            println!("{:>12} {:>10}  option", "value", "regret");
+            for o in options {
+                let regret = solver.regret(&sit, &o.action).map_err(|e| e.to_string())?;
+                let mark = if best.contains(&o.action) { "  (best)" } else { "" };
+                println!("{:>12.6} {:>10.6}  {}{mark}", o.value, regret, v.format_action(&o.action));
+            }
+            Ok(true)
+        }
+        Command::Simulate { variant: id, table, games, seed, policy, log } => {
+            let v = variant(&id)?;
+            let solver = solver(&v, table)?;
+            let t0 = Instant::now();
+            let logs = log.is_some();
+            let sim = match policy {
+                PolicyArg::Optimal => solver.simulate_optimal(games, seed, logs),
+                PolicyArg::Random => simulate(&v, &mut RandomPolicy, games, seed, logs).map_err(|e| e.to_string())?,
+            };
+            let secs = t0.elapsed().as_secs_f64();
+            let sum = sim.summary();
+            let exact = solver.state_value(&State::new());
+            println!("variant      {id}");
+            println!(
+                "games        {games} (seed {seed}, policy {})",
+                if matches!(policy, PolicyArg::Optimal) { "optimal" } else { "random" }
+            );
+            println!(
+                "mean         {:.4} +- {:.4} (95% interval {:.4} to {:.4})",
+                sum.mean,
+                sum.std_error,
+                sum.mean - 1.96 * sum.std_error,
+                sum.mean + 1.96 * sum.std_error
+            );
+            println!("exact mean   {exact:.4} (optimal policy)");
+            println!("std dev      {:.4}", sum.std_dev);
+            println!("min / median / max   {} / {} / {}", sum.min, sum.median, sum.max);
+            println!(
+                "percentiles  10%: {}  25%: {}  75%: {}  90%: {}",
+                sim.percentile(10.0),
+                sim.percentile(25.0),
+                sim.percentile(75.0),
+                sim.percentile(90.0)
+            );
+            println!("time         {secs:.2} s");
+            if let Some(path) = log {
+                let mut out = String::new();
+                for g in &sim.logs {
+                    let decisions: Vec<String> = g
+                        .decisions
+                        .iter()
+                        .map(|d| {
+                            let points = d.scored.map_or("null".to_string(), |x| x.total().to_string());
+                            format!(
+                                "{{\"situation\":\"{}\",\"action\":\"{}\",\"points\":{points}}}",
+                                v.format_situation(&d.situation),
+                                v.format_action(&d.action)
+                            )
+                        })
+                        .collect();
+                    out.push_str(&format!(
+                        "{{\"variant\":\"{id}\",\"seed\":{seed},\"game\":{},\"score\":{},\"decisions\":[{}]}}\n",
+                        g.game,
+                        g.final_score,
+                        decisions.join(",")
+                    ));
+                }
+                std::fs::write(&path, out).map_err(|e| format!("{}: {e}", path.display()))?;
+                println!("log          {}", path.display());
             }
             Ok(true)
         }
@@ -127,7 +226,7 @@ fn run(cli: Cli) -> Result<bool, String> {
             if !quick {
                 println!("published values:");
                 for p in PUBLISHED {
-                    let v = variant(p.variant)?;
+                    let v = p.variant();
                     let model = TurnModel::new(&v);
                     let t: Vec<f64> = model.solve();
                     let x = t[model.space().index(&State::new())];

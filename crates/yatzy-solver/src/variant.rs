@@ -39,8 +39,8 @@ pub enum CategoryKind {
     OfAKind { n: u8, scoring: OfAKindScoring },
     /// Two pairs of different faces, scoring the sum of the four dice (the two highest pairs if there are more).
     /// With `four_of_a_kind_counts`, four (or more) of one face also counts, scoring four times the face.
-    /// With `single_pair_counts`, a single pair also scores, as twice its face: this reproduces the scoring code
-    /// behind the published 248.63 (see `docs/rules.md`), not a rule anyone plays by.
+    /// With `single_pair_counts`, a single pair also scores, as twice its face. This is not a rule anyone plays
+    /// by: it reproduces the scoring code behind the published 248.63 ([`crate::verify`]).
     TwoPairs { four_of_a_kind_counts: bool, single_pair_counts: bool },
     /// Three of one face and two of another. With `five_of_a_kind_counts`, five of a kind (all dice the same)
     /// also counts.
@@ -92,7 +92,7 @@ pub enum JokerRule {
 /// holds its full points, `points` (100) are added, wherever the hand is scored. The bonus does not count
 /// toward the upper section.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct YahtzeeBonus {
+pub struct AllSameBonus {
     pub points: u16,
     pub joker: JokerRule,
 }
@@ -111,7 +111,7 @@ pub struct VariantDef {
     /// The categories, in score-card order.
     pub categories: Vec<Category>,
     pub upper_bonus: Option<UpperBonus>,
-    pub yahtzee_bonus: Option<YahtzeeBonus>,
+    pub all_same_bonus: Option<AllSameBonus>,
     /// Categories must be filled in score-card order ("tvångsyatzy").
     pub forced_order: bool,
 }
@@ -125,7 +125,7 @@ pub struct Variant {
     /// Mask of the upper-section categories.
     upper_mask: u32,
     /// The Yahtzee box, when the variant has a Yahtzee bonus.
-    yahtzee_box: Option<usize>,
+    all_same_box: Option<usize>,
 }
 
 /// Why a variant definition is invalid.
@@ -149,14 +149,11 @@ pub struct HouseRules {
     pub four_of_a_kind_two_pairs: bool,
     /// Categories are filled top to bottom ("tvångsyatzy").
     pub forced_order: bool,
-    /// A single pair scores in Two pairs (as twice its face). Not a rule anyone plays by: it reproduces the
-    /// scoring code behind the published 248.63 (Larsson and Sjöberg 2012).
-    pub single_pair_two_pairs: bool,
 }
 
 impl HouseRules {
     /// The suffix these switches add to the variant id: empty for the defaults, otherwise `+` and the switch
-    /// names, e.g. `+fh5+forced`, in the order `+fh5`, `+tp4`, `+tp1`, `+forced`.
+    /// names, e.g. `+fh5+forced`, in the order `+fh5`, `+tp4`, `+forced`.
     pub fn id_suffix(&self) -> String {
         let mut s = String::new();
         if self.five_of_a_kind_full_house {
@@ -164,9 +161,6 @@ impl HouseRules {
         }
         if self.four_of_a_kind_two_pairs {
             s.push_str("+tp4");
-        }
-        if self.single_pair_two_pairs {
-            s.push_str("+tp1");
         }
         if self.forced_order {
             s.push_str("+forced");
@@ -200,7 +194,7 @@ impl Variant {
     /// Id of Scandinavian Yatzy with default house rules.
     pub const SCANDINAVIAN: &'static str = "yatzy-scandinavian";
     /// Id of the American rules (Yahtzee-compatible) variant.
-    pub const AMERICAN: &'static str = "yahtzee";
+    pub const AMERICAN: &'static str = "american";
 
     /// Validates a definition.
     pub fn new(def: VariantDef) -> Result<Variant, VariantError> {
@@ -259,17 +253,17 @@ impl Variant {
         {
             return err("upper bonus without upper categories".into());
         }
-        if def.yahtzee_bonus.is_some_and(|b| b.joker == JokerRule::Forced) && def.forced_order {
+        if def.all_same_bonus.is_some_and(|b| b.joker == JokerRule::Forced) && def.forced_order {
             return err("the forced-joker rule and forced order cannot be combined".into());
         }
-        let yahtzee_box = match def.yahtzee_bonus {
+        let all_same_box = match def.all_same_bonus {
             None => None,
             Some(_) => match all_same.as_slice() {
                 [i] => Some(*i),
                 _ => return err("a Yahtzee bonus needs exactly one all-same category".into()),
             },
         };
-        Ok(Variant { def, upper_of_face, upper_mask, yahtzee_box })
+        Ok(Variant { def, upper_of_face, upper_mask, all_same_box })
     }
 
     /// Scandinavian Yatzy with default house rules (SPEC 2.1).
@@ -287,10 +281,7 @@ impl Variant {
             cat(
                 "two_pairs",
                 "Two pairs",
-                TwoPairs {
-                    four_of_a_kind_counts: rules.four_of_a_kind_two_pairs,
-                    single_pair_counts: rules.single_pair_two_pairs,
-                },
+                TwoPairs { four_of_a_kind_counts: rules.four_of_a_kind_two_pairs, single_pair_counts: false },
             ),
             cat("three_of_a_kind", "Three of a kind", OfAKind { n: 3, scoring: OfAKindScoring::Matched }),
             cat("four_of_a_kind", "Four of a kind", OfAKind { n: 4, scoring: OfAKindScoring::Matched }),
@@ -322,7 +313,7 @@ impl Variant {
             rolls: 3,
             categories,
             upper_bonus: Some(UpperBonus { threshold: 63, points: 50 }),
-            yahtzee_bonus: None,
+            all_same_bonus: None,
             forced_order: rules.forced_order,
         })
         .expect("built-in variant is valid")
@@ -335,8 +326,8 @@ impl Variant {
     }
 
     /// American rules with a choice of Yahtzee bonus and joker rule: `Some(joker)` for the 100-point Yahtzee
-    /// bonus with that joker rule, `None` for neither bonus nor joker. Ids: `yahtzee` (free joker),
-    /// `yahtzee+forced-joker`, `yahtzee+no-joker` (bonus, no joker) and `yahtzee+no-bonus`.
+    /// bonus with that joker rule, `None` for neither bonus nor joker. Ids: `american` (free joker),
+    /// `american+forced-joker`, `american+no-joker` (bonus, no joker) and `american+no-bonus`.
     pub fn american_with(bonus: Option<JokerRule>) -> Variant {
         use CategoryKind::*;
         let mut categories = upper_categories();
@@ -361,7 +352,7 @@ impl Variant {
                 "Large straight",
                 Straight { patterns: vec![face_mask(&[1, 2, 3, 4, 5]), face_mask(&[2, 3, 4, 5, 6])], points: 40 },
             ),
-            cat("yahtzee", "Yahtzee", AllSame { points: 50 }),
+            cat("five_of_a_kind", "Yahtzee", AllSame { points: 50 }),
             cat("chance", "Chance", Chance),
         ]);
         let suffix = match bonus {
@@ -377,15 +368,33 @@ impl Variant {
             rolls: 3,
             categories,
             upper_bonus: Some(UpperBonus { threshold: 63, points: 35 }),
-            yahtzee_bonus: bonus.map(|joker| YahtzeeBonus { points: 100, joker }),
+            all_same_bonus: bonus.map(|joker| AllSameBonus { points: 100, joker }),
             forced_order: false,
         })
         .expect("built-in variant is valid")
     }
 
-    /// A built-in variant by id: `yahtzee` (optionally `+forced-joker`, `+no-joker` or `+no-bonus`), or
+    /// The ids of all built-in variants: American rules with each joker choice, and Scandinavian Yatzy with
+    /// every combination of house-rule switches.
+    pub fn builtin_ids() -> Vec<String> {
+        let mut ids: Vec<String> = ["", "+forced-joker", "+no-joker", "+no-bonus"]
+            .iter()
+            .map(|s| format!("{}{s}", Variant::AMERICAN))
+            .collect();
+        for bits in 0..8u8 {
+            let rules = HouseRules {
+                five_of_a_kind_full_house: bits & 1 != 0,
+                four_of_a_kind_two_pairs: bits & 2 != 0,
+                forced_order: bits & 4 != 0,
+            };
+            ids.push(format!("{}{}", Variant::SCANDINAVIAN, rules.id_suffix()));
+        }
+        ids
+    }
+
+    /// A built-in variant by id: `american` (optionally `+forced-joker`, `+no-joker` or `+no-bonus`), or
     /// `yatzy-scandinavian` optionally followed by house-rule switches in canonical order (`+fh5`, `+tp4`,
-    /// `+tp1`, `+forced`).
+    /// `+forced`).
     pub fn by_id(id: &str) -> Option<Variant> {
         if let Some(rest) = id.strip_prefix(Variant::AMERICAN) {
             let bonus = match rest {
@@ -402,7 +411,6 @@ impl Variant {
             five_of_a_kind_full_house: rest.contains("+fh5"),
             four_of_a_kind_two_pairs: rest.contains("+tp4"),
             forced_order: rest.contains("+forced"),
-            single_pair_two_pairs: rest.contains("+tp1"),
         };
         (rules.id_suffix() == rest).then(|| Variant::scandinavian_with(rules))
     }
@@ -452,18 +460,18 @@ impl Variant {
         self.def.upper_bonus
     }
 
-    pub fn yahtzee_bonus(&self) -> Option<YahtzeeBonus> {
-        self.def.yahtzee_bonus
+    pub fn all_same_bonus(&self) -> Option<AllSameBonus> {
+        self.def.all_same_bonus
     }
 
     /// The joker rule; [`JokerRule::None`] without a Yahtzee bonus.
     pub fn joker_rule(&self) -> JokerRule {
-        self.def.yahtzee_bonus.map_or(JokerRule::None, |b| b.joker)
+        self.def.all_same_bonus.map_or(JokerRule::None, |b| b.joker)
     }
 
     /// The Yahtzee box (the all-same category), when the variant has a Yahtzee bonus.
-    pub fn yahtzee_box(&self) -> Option<usize> {
-        self.yahtzee_box
+    pub fn all_same_box(&self) -> Option<usize> {
+        self.all_same_box
     }
 
     /// The upper category for a face, if any.
@@ -516,8 +524,8 @@ impl Variant {
         if let Some(b) = d.upper_bonus {
             out.push_str(&format!("upper_bonus {} {}\n", b.threshold, b.points));
         }
-        if let Some(b) = d.yahtzee_bonus {
-            out.push_str(&format!("yahtzee_bonus {} {:?}\n", b.points, b.joker));
+        if let Some(b) = d.all_same_bonus {
+            out.push_str(&format!("all_same_bonus {} {:?}\n", b.points, b.joker));
         }
         out.push_str(&format!("forced_order {}\n", d.forced_order));
         out

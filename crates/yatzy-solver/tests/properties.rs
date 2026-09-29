@@ -9,10 +9,10 @@ const VARIANTS: &[&str] = &[
     "yatzy-scandinavian+tp4",
     "yatzy-scandinavian+forced",
     "yatzy-scandinavian+fh5+tp4+forced",
-    "yahtzee",
-    "yahtzee+forced-joker",
-    "yahtzee+no-joker",
-    "yahtzee+no-bonus",
+    "american",
+    "american+forced-joker",
+    "american+no-joker",
+    "american+no-bonus",
 ];
 
 /// Plays one game driven by `seq` (dice faces and choices, used cyclically) and checks invariants.
@@ -93,8 +93,8 @@ proptest! {
         let v = Variant::by_id(VARIANTS[vi]).unwrap();
         let filled = filled & v.all_mask();
         prop_assume!(filled != v.all_mask());
-        let yfilled = v.yahtzee_box().is_some_and(|y| filled & (1 << y) != 0);
-        let s = yatzy_solver::State { filled, upper: 0, yahtzee_armed: armed && yfilled };
+        let yfilled = v.all_same_box().is_some_and(|y| filled & (1 << y) != 0);
+        let s = yatzy_solver::State { filled, upper: 0, bonus_armed: armed && yfilled };
         let d = Dice::from_faces(&faces).unwrap();
         let legal: Vec<usize> = v.score_choices(&s, &d).unwrap().iter().map(|x| x.category).collect();
         prop_assert!(!legal.is_empty());

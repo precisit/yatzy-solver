@@ -53,15 +53,14 @@ Each switch adds a suffix to the variant id, in this order:
 | --- | --- | --- |
 | `+fh5` | five of a kind counts as a full house (scoring the sum of the dice) | off |
 | `+tp4` | four of a kind counts as two pairs (scoring 4 x v) | off |
-| `+tp1` | a single pair scores in Two pairs (as 2 x v); see below, not a rule anyone plays by | off |
 | `+forced` | forced order ("tvångsyatzy"): categories are filled top to bottom | off |
 
 For example `yatzy-scandinavian+fh5+forced`.
 
-### The published value 248.63 (SPEC 10.1)
+### The validation value, and the published 248.63 (SPEC 10.1)
 
-The expected score under optimal play with the default rules is **248.4399894**. The published 248.63
-(Larsson and Sjöberg, KTH, 2012) differs because of the authors' code, not their rules:
+The expected score under optimal play with the default rules is **248.4399894**; this is the validation value.
+The published 248.63 (Larsson and Sjöberg, KTH, 2012) differs because of the authors' code, not their rules:
 
 - Their stated rules (appendix A, based on Alga's rule set) match the defaults above: the two pairs must be
   different ("1, 2, 2, 2, 2" is not two pairs), five of a kind is not a full house, three and four of a kind
@@ -70,17 +69,20 @@ The expected score under optimal play with the default rules is **248.4399894**.
 - Their published Java code (`ansjob/optimalt-yatzy`, `ScoreCard.scorePair`) scores Two pairs as twice the
   highest pair plus twice the second-highest pair, **or plus 0 when there is no second pair**. A hand with a
   single pair therefore scores in Two pairs: 1 2 2 4 5 scores 4 and 6 6 6 6 6 scores 12.
-- With that scoring (`yatzy-scandinavian+tp1`) this solver gives **248.6328539**, which rounds to 248.63.
+- With that scoring (`verify::larsson_sjoberg_2012()`, id `yatzy-scandinavian-ls2012-code`; a check, not a
+  playable variant) this solver gives **248.6328539**, which rounds to 248.63.
 - Two independent open-source solvers agree with 248.44 for the stated rules: `Castux/yahtzee` reports 248.4394
-  and `Laurii1i/Yatzy` about 248.44.
+  and `Laurii1i/Yatzy` about 248.44. Castux uses the same rules; its fourth decimal differs because it computes
+  in single precision, with outcome probabilities that do not quite sum to 1 (SPEC 10.5).
 - Sederblad and Törnebohm (KTH, 2013) did not solve the full game; later theses cite 248.63 without recomputing
   it.
 
 For reference, the other switches give: `+fh5` 248.4680909, `+tp4` 248.6440589, `+fh5+tp4` 248.6748827.
 
-## American rules, Yahtzee-compatible (`yahtzee`)
+## American rules, Yahtzee-compatible (`american`)
 
-"Yahtzee" is a trademark of Hasbro; this variant implements rules compatible with it. 13 categories, 13 turns.
+"Yahtzee" is a trademark of Hasbro; this variant implements rules compatible with it. Ids, the notation and
+table files never use the name: the variant is `american` and its five-of-a-kind box is `five_of_a_kind`. 13 categories, 13 turns.
 The upper bonus is 35 points when Ones to Sixes total at least 63.
 
 | id | category | score |
@@ -91,7 +93,7 @@ The upper bonus is 35 points when Ones to Sixes total at least 63.
 | `full_house` | Full house | three of one face and two of another: 25 |
 | `small_straight` | Small straight | any four in sequence: 30 |
 | `large_straight` | Large straight | five in sequence: 40 |
-| `yahtzee` | Yahtzee | five of a kind: 50 |
+| `five_of_a_kind` | Yahtzee | five of a kind: 50 |
 | `chance` | Chance | the sum of the dice |
 
 Five of a kind is not a full house, except as a joker.
@@ -109,15 +111,24 @@ Published sources differ on when the joker applies and where the hand may go, so
 
 | id | joker rule | expected score |
 | --- | --- | --- |
-| `yahtzee` | **Free joker** (Verhoeff's rules, used for the published 254.5896): the joker applies when the Yahtzee box and the upper box of the hand's face are both filled (with any score, zero included). The player may score the hand in any open box. | 254.5896095 |
-| `yahtzee+forced-joker` | **Forced joker** (the official placement rule): when the Yahtzee box is filled (with any score), the upper box of the hand's face must be used if open; otherwise any open lower box, with the joker applying; otherwise any open upper box, which scores 0. | 254.5877287 |
-| `yahtzee+no-joker` | The Yahtzee bonus without the joker. | 253.9702412 |
-| `yahtzee+no-bonus` | Neither the Yahtzee bonus nor the joker. Verhoeff and Glenn report 245.87 for this game. | 245.8707745 |
+| `american` | **Free joker** (Verhoeff's rules, used for the published 254.5896): the joker applies when the Yahtzee box and the upper box of the hand's face are both filled (with any score, zero included). The player may score the hand in any open box. | 254.5896095 |
+| `american+forced-joker` | **Forced joker** (the official placement rule): when the Yahtzee box is filled (with any score), the upper box of the hand's face must be used if open; otherwise any open lower box, with the joker applying; otherwise any open upper box, which scores 0. | 254.5877287 |
+| `american+no-joker` | The Yahtzee bonus without the joker. | 253.9702412 |
+| `american+no-bonus` | Neither the Yahtzee bonus nor the joker. Verhoeff and Glenn report 245.87 for this game. | 245.8707745 |
+
+The default is the free joker because it is what the literature and the published value use. The printed rules
+use the forced joker, available as `american+forced-joker`; the two differ by 0.0019 points of expected score.
 
 Verhoeff's trivia page also gives an exact fraction (Liese and Kelly, 2017) that evaluates to 254.58937. It
 matches none of the joker rules above; which rules it was computed under is an open question.
 
-The state of the American variant includes the Yahtzee box status (open, 0 or 50), which the notation records.
+The state of the American variant includes the Yahtzee box status (open, 0 or 50), which the notation records
+in the `five_of_a_kind` field.
+
+### Unsupported combinations
+
+The forced joker cannot be combined with forced order: the rules do not say which one wins, so such a variant
+definition is rejected.
 
 ## Reduced and custom variants
 

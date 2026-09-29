@@ -1,4 +1,4 @@
-//! Solves a built-in variant and prints the expected score: `cargo run --release --example solve -- yahtzee`.
+//! Solves a built-in variant and prints the expected score: `cargo run --release --example solve -- american`.
 
 use std::time::Instant;
 

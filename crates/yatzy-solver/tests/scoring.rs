@@ -62,46 +62,38 @@ const CASES: &[(&str, &str, &str, u16)] = &[
     ("yatzy-scandinavian+tp4", "3 3 5 5 6", "two_pairs", 16),
     ("yatzy-scandinavian+tp4", "2 2 2 1 6", "two_pairs", 0),
     ("yatzy-scandinavian+tp4", "6 6 6 6 6", "full_house", 0),
-    // Single pair scores in two pairs (the scoring code behind the published 248.63).
-    ("yatzy-scandinavian+tp1", "1 2 2 4 5", "two_pairs", 4),
-    ("yatzy-scandinavian+tp1", "2 2 2 2 5", "two_pairs", 4),
-    ("yatzy-scandinavian+tp1", "6 6 6 6 6", "two_pairs", 12),
-    ("yatzy-scandinavian+tp1", "3 3 5 5 6", "two_pairs", 16),
-    ("yatzy-scandinavian+tp1", "2 2 2 5 5", "two_pairs", 14),
-    ("yatzy-scandinavian+tp1", "1 2 3 4 6", "two_pairs", 0),
-    ("yatzy-scandinavian+tp4+tp1", "2 2 2 2 5", "two_pairs", 8),
     // Forced order changes legality, not scores.
     ("yatzy-scandinavian+forced", "2 2 3 3 3", "full_house", 13),
     // American rules.
-    ("yahtzee", "1 1 2 3 4", "ones", 2),
-    ("yahtzee", "2 2 2 5 5", "twos", 6),
-    ("yahtzee", "3 3 3 3 1", "threes", 12),
-    ("yahtzee", "4 4 4 1 2", "fours", 12),
-    ("yahtzee", "5 5 5 5 5", "fives", 25),
-    ("yahtzee", "6 6 1 2 3", "sixes", 12),
-    ("yahtzee", "4 4 4 1 2", "three_of_a_kind", 15),
-    ("yahtzee", "4 4 4 4 2", "three_of_a_kind", 18),
-    ("yahtzee", "5 5 5 5 5", "three_of_a_kind", 25),
-    ("yahtzee", "3 3 5 5 6", "three_of_a_kind", 0),
-    ("yahtzee", "4 4 4 4 2", "four_of_a_kind", 18),
-    ("yahtzee", "5 5 5 5 5", "four_of_a_kind", 25),
-    ("yahtzee", "4 4 4 1 2", "four_of_a_kind", 0),
-    ("yahtzee", "2 2 3 3 3", "full_house", 25),
-    ("yahtzee", "6 6 6 1 1", "full_house", 25),
-    ("yahtzee", "5 5 5 5 5", "full_house", 0),
-    ("yahtzee", "4 4 4 4 2", "full_house", 0),
-    ("yahtzee", "1 2 3 4 6", "small_straight", 30),
-    ("yahtzee", "2 3 4 5 5", "small_straight", 30),
-    ("yahtzee", "1 3 4 5 6", "small_straight", 30),
-    ("yahtzee", "1 2 3 4 5", "small_straight", 30),
-    ("yahtzee", "1 2 3 5 6", "small_straight", 0),
-    ("yahtzee", "1 2 3 4 5", "large_straight", 40),
-    ("yahtzee", "2 3 4 5 6", "large_straight", 40),
-    ("yahtzee", "1 2 3 4 6", "large_straight", 0),
-    ("yahtzee", "5 5 5 5 5", "yahtzee", 50),
-    ("yahtzee", "5 5 5 5 4", "yahtzee", 0),
-    ("yahtzee", "1 1 2 3 4", "chance", 11),
-    ("yahtzee", "6 6 6 6 6", "chance", 30),
+    ("american", "1 1 2 3 4", "ones", 2),
+    ("american", "2 2 2 5 5", "twos", 6),
+    ("american", "3 3 3 3 1", "threes", 12),
+    ("american", "4 4 4 1 2", "fours", 12),
+    ("american", "5 5 5 5 5", "fives", 25),
+    ("american", "6 6 1 2 3", "sixes", 12),
+    ("american", "4 4 4 1 2", "three_of_a_kind", 15),
+    ("american", "4 4 4 4 2", "three_of_a_kind", 18),
+    ("american", "5 5 5 5 5", "three_of_a_kind", 25),
+    ("american", "3 3 5 5 6", "three_of_a_kind", 0),
+    ("american", "4 4 4 4 2", "four_of_a_kind", 18),
+    ("american", "5 5 5 5 5", "four_of_a_kind", 25),
+    ("american", "4 4 4 1 2", "four_of_a_kind", 0),
+    ("american", "2 2 3 3 3", "full_house", 25),
+    ("american", "6 6 6 1 1", "full_house", 25),
+    ("american", "5 5 5 5 5", "full_house", 0),
+    ("american", "4 4 4 4 2", "full_house", 0),
+    ("american", "1 2 3 4 6", "small_straight", 30),
+    ("american", "2 3 4 5 5", "small_straight", 30),
+    ("american", "1 3 4 5 6", "small_straight", 30),
+    ("american", "1 2 3 4 5", "small_straight", 30),
+    ("american", "1 2 3 5 6", "small_straight", 0),
+    ("american", "1 2 3 4 5", "large_straight", 40),
+    ("american", "2 3 4 5 6", "large_straight", 40),
+    ("american", "1 2 3 4 6", "large_straight", 0),
+    ("american", "5 5 5 5 5", "five_of_a_kind", 50),
+    ("american", "5 5 5 5 4", "five_of_a_kind", 0),
+    ("american", "1 1 2 3 4", "chance", 11),
+    ("american", "6 6 6 6 6", "chance", 30),
     // Zero cases for the upper boxes.
     ("yatzy-scandinavian", "2 3 4 5 6", "ones", 0),
     ("yatzy-scandinavian", "1 3 4 5 6", "twos", 0),
@@ -109,15 +101,15 @@ const CASES: &[(&str, &str, &str, u16)] = &[
     ("yatzy-scandinavian", "1 1 2 3 5", "fours", 0),
     ("yatzy-scandinavian", "1 1 2 3 4", "fives", 0),
     ("yatzy-scandinavian", "1 1 2 3 4", "sixes", 0),
-    ("yahtzee", "2 3 4 5 6", "ones", 0),
-    ("yahtzee", "1 3 4 5 6", "twos", 0),
-    ("yahtzee", "1 1 2 2 4", "threes", 0),
-    ("yahtzee", "1 1 2 3 5", "fours", 0),
-    ("yahtzee", "1 1 2 3 4", "fives", 0),
-    ("yahtzee", "1 1 2 3 4", "sixes", 0),
-    ("yahtzee+no-bonus", "2 2 3 3 3", "full_house", 25),
-    ("yahtzee+forced-joker", "2 2 3 3 3", "full_house", 25),
-    ("yahtzee+no-joker", "5 5 5 5 5", "full_house", 0),
+    ("american", "2 3 4 5 6", "ones", 0),
+    ("american", "1 3 4 5 6", "twos", 0),
+    ("american", "1 1 2 2 4", "threes", 0),
+    ("american", "1 1 2 3 5", "fours", 0),
+    ("american", "1 1 2 3 4", "fives", 0),
+    ("american", "1 1 2 3 4", "sixes", 0),
+    ("american+no-bonus", "2 2 3 3 3", "full_house", 25),
+    ("american+forced-joker", "2 2 3 3 3", "full_house", 25),
+    ("american+no-joker", "5 5 5 5 5", "full_house", 0),
 ];
 
 fn dice(s: &str) -> Dice {
@@ -141,7 +133,7 @@ fn scoring_table() {
 
 #[test]
 fn table_covers_every_category_of_the_main_variants() {
-    for vid in ["yatzy-scandinavian", "yahtzee"] {
+    for vid in ["yatzy-scandinavian", "american"] {
         let v = Variant::by_id(vid).unwrap();
         let tested: BTreeSet<&str> = CASES.iter().filter(|c| c.0 == vid).map(|c| c.2).collect();
         for cat in v.categories() {
@@ -198,7 +190,7 @@ fn every_score_matches_a_reference_implementation() {
             ("full_house", if is_fh { 25 } else { 0 }),
             ("small_straight", if has(&[1, 2, 3, 4]) || has(&[2, 3, 4, 5]) || has(&[3, 4, 5, 6]) { 30 } else { 0 }),
             ("large_straight", if has(&[1, 2, 3, 4, 5]) || has(&[2, 3, 4, 5, 6]) { 40 } else { 0 }),
-            ("yahtzee", if kind(5).is_some() { 50 } else { 0 }),
+            ("five_of_a_kind", if kind(5).is_some() { 50 } else { 0 }),
             ("chance", sum),
         ];
         let v = Variant::american();
@@ -210,5 +202,18 @@ fn every_score_matches_a_reference_implementation() {
                 assert_eq!(v.score(usize::from(face - 1), &d), u16::from(face) * cnt(face));
             }
         }
+    }
+}
+
+#[cfg(feature = "verify")]
+#[test]
+fn larsson_sjoberg_2012_two_pairs() {
+    // The scoring code behind the published 248.63: a single pair scores in Two pairs.
+    let v = yatzy_solver::verify::larsson_sjoberg_2012();
+    let c = v.category_index("two_pairs").unwrap();
+    for (d, want) in
+        [("1 2 2 4 5", 4), ("2 2 2 2 5", 4), ("6 6 6 6 6", 12), ("3 3 5 5 6", 16), ("2 2 2 5 5", 14), ("1 2 3 4 6", 0)]
+    {
+        assert_eq!(v.score(c, &dice(d)), want, "[{d}]");
     }
 }
