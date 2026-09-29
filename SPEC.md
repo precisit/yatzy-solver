@@ -79,6 +79,10 @@ These must be settled against the rule set of the published 248.63 before the fi
   rule, the upper box of that face must be used if open; otherwise any lower box, with full points for full house
   and the straights.
 - The state gains a Yahtzee-box status (open, 0, or 50).
+- **Joker rule as a switch** (found in M2): the published 254.5896 uses Verhoeff's reading, not the forced
+  joker: the joker (full points for full house and the straights) applies when the Yahtzee box and the upper box
+  of the hand's face are both filled, and the hand may be scored in any open box. `yahtzee` uses that rule;
+  `yahtzee+forced-joker`, `yahtzee+no-joker` and `yahtzee+no-bonus` give the alternatives (docs/rules.md).
 
 This variant exists to validate the solver against the best-known published number.
 
@@ -270,12 +274,23 @@ covered above:
 
 1. The exact rules behind the published 248.63: full house with five of a kind, two pairs from four of a kind,
    straights. Confirm from the KTH theses and document any difference.
+   **Resolved in M2:** the stated rules of Larsson and Sjöberg (2012) match the `yatzy-scandinavian` defaults,
+   which give 248.4399894 (confirmed independently by the open-source solvers Castux/yahtzee, 248.4394, and
+   Laurii1i/Yatzy, about 248.44). Their published code scores a single pair in Two pairs (the second pair
+   counts 0 when absent); with that scoring (`+tp1`) the solver gives 248.6328539, which rounds to 248.63. The
+   house-rule defaults stay as in 2.1. Proposed for the owner: record 248.44 as the Scandinavian validation
+   value in 5.3 and M2, with 248.63 kept as the reproduction of the published code.
 2. Whether Maxi Yatzy (six dice, saved rolls) is feasible exactly, or only approximately.
 3. Multiplayer: an exact win-probability solver is out of scope for v1; the P(score >= T) objective is the
    practical step.
+4. Verhoeff's trivia page also gives an exact fraction (Liese and Kelly, 2017) that evaluates to 254.58937,
+   not 254.5896. It matches none of the free, forced or no-joker rules (254.5896095, 254.5877287,
+   253.9702412). Which rules it uses is unknown; it does not affect the validation value.
 
 ## Changelog
 
 - 2026-09-29: v0.1, initial specification; license MIT; repository private.
+- 2026-09-29: 2.2 records the joker rule as a switch (Verhoeff's reading gives 254.5896); 10.1 resolved (248.63
+  comes from the published code's Two pairs scoring; 248.44 under the stated rules); 10.4 added.
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.

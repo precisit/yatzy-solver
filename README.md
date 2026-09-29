@@ -6,8 +6,38 @@ WebAssembly bindings.
 
 **Status:** in development (private). The specification is [`SPEC.md`](SPEC.md).
 
+## Validation
+
+| variant | this solver | published |
+| --- | --- | --- |
+| American rules (Yahtzee-compatible) | 254.5896095 | 254.5896 (Verhoeff, Glenn) |
+| American rules without Yahtzee bonus and joker | 245.8707745 | 245.87 (Verhoeff, Glenn) |
+| Scandinavian Yatzy | 248.4399894 | 248.63 (Larsson and Sjöberg 2012), see below |
+
+The published Scandinavian 248.63 was computed by code that lets a single pair score in Two pairs; with that
+scoring this solver gives 248.6328539. Under the stated rules the value is 248.44, which two independent
+open-source solvers confirm. Details in [docs/rules.md](docs/rules.md).
+
+A brute-force reference solver checks the fast solver exactly, in rational arithmetic, on reduced games. To
+reproduce everything:
+
+```sh
+cargo run --release -p yatzy-solver-cli -- verify
+```
+
+## Documentation
+
 - [Rules](docs/rules.md): the variants, house-rule switches and joker rules.
 - [Notation](docs/notation.md): the stable text form of situations and actions.
+- [Solver](docs/solver.md): the method, verification, table format and performance.
+
+## Command line
+
+```sh
+yatzy-solver build --variant yatzy-scandinavian          # writes tables/yatzy-scandinavian.f32.yzt
+yatzy-solver query "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -"
+yatzy-solver verify
+```
 
 ## Prior work
 
@@ -19,6 +49,8 @@ WebAssembly bindings.
   ([report](https://www.csc.kth.se/utbildning/kth/kurser/DD143X/dkand12/Group89Michael/report/Larsson+Sjoberg.pdf)),
   and studied by Sederblad and Törnebohm (KTH, 2013,
   [report](https://www.diva-portal.org/smash/get/diva2:676659/FULLTEXT01.pdf)).
+- Independent open-source solvers of Scandinavian Yatzy, [Castux/yahtzee](https://github.com/Castux/yahtzee)
+  and [Laurii1i/Yatzy](https://github.com/Laurii1i/Yatzy), which confirm the value under the stated rules.
 - Jakub Pawlewicz studied nearly optimal multiplayer play ("Nearly Optimal Computer Play in Multi-player Yahtzee",
   Computers and Games 2010).
 

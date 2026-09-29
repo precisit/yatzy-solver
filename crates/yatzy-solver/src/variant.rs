@@ -39,8 +39,11 @@ pub enum CategoryKind {
     OfAKind { n: u8, scoring: OfAKindScoring },
     /// Two pairs of different faces, scoring the sum of the four dice (the two highest pairs if there are more).
     /// With `four_of_a_kind_counts`, four (or more) of one face also counts, scoring four times the face.
-    TwoPairs { four_of_a_kind_counts: bool },
-    /// Three of one face and two of another. With `five_of_a_kind_counts`, five of a kind also counts.
+    /// With `single_pair_counts`, a single pair also scores, as twice its face: this reproduces the scoring code
+    /// behind the published 248.63 (see `docs/rules.md`), not a rule anyone plays by.
+    TwoPairs { four_of_a_kind_counts: bool, single_pair_counts: bool },
+    /// Three of one face and two of another. With `five_of_a_kind_counts`, five of a kind (all dice the same)
+    /// also counts.
     FullHouse { scoring: FullHouseScoring, five_of_a_kind_counts: bool },
     /// The dice contain every face of at least one pattern (a face bitmask, bit `f - 1` for face `f`).
     Straight { patterns: Vec<u8>, points: u16 },
@@ -146,11 +149,14 @@ pub struct HouseRules {
     pub four_of_a_kind_two_pairs: bool,
     /// Categories are filled top to bottom ("tvångsyatzy").
     pub forced_order: bool,
+    /// A single pair scores in Two pairs (as twice its face). Not a rule anyone plays by: it reproduces the
+    /// scoring code behind the published 248.63 (Larsson and Sjöberg 2012).
+    pub single_pair_two_pairs: bool,
 }
 
 impl HouseRules {
     /// The suffix these switches add to the variant id: empty for the defaults, otherwise `+` and the switch
-    /// names, e.g. `+fh5+forced`.
+    /// names, e.g. `+fh5+forced`, in the order `+fh5`, `+tp4`, `+tp1`, `+forced`.
     pub fn id_suffix(&self) -> String {
         let mut s = String::new();
         if self.five_of_a_kind_full_house {
@@ -158,6 +164,9 @@ impl HouseRules {
         }
         if self.four_of_a_kind_two_pairs {
             s.push_str("+tp4");
+        }
+        if self.single_pair_two_pairs {
+            s.push_str("+tp1");
         }
         if self.forced_order {
             s.push_str("+forced");
@@ -275,7 +284,14 @@ impl Variant {
         let mut categories = upper_categories();
         categories.extend([
             cat("one_pair", "One pair", OfAKind { n: 2, scoring: OfAKindScoring::Matched }),
-            cat("two_pairs", "Two pairs", TwoPairs { four_of_a_kind_counts: rules.four_of_a_kind_two_pairs }),
+            cat(
+                "two_pairs",
+                "Two pairs",
+                TwoPairs {
+                    four_of_a_kind_counts: rules.four_of_a_kind_two_pairs,
+                    single_pair_counts: rules.single_pair_two_pairs,
+                },
+            ),
             cat("three_of_a_kind", "Three of a kind", OfAKind { n: 3, scoring: OfAKindScoring::Matched }),
             cat("four_of_a_kind", "Four of a kind", OfAKind { n: 4, scoring: OfAKindScoring::Matched }),
             cat(
@@ -369,7 +385,7 @@ impl Variant {
 
     /// A built-in variant by id: `yahtzee` (optionally `+forced-joker`, `+no-joker` or `+no-bonus`), or
     /// `yatzy-scandinavian` optionally followed by house-rule switches in canonical order (`+fh5`, `+tp4`,
-    /// `+forced`).
+    /// `+tp1`, `+forced`).
     pub fn by_id(id: &str) -> Option<Variant> {
         if let Some(rest) = id.strip_prefix(Variant::AMERICAN) {
             let bonus = match rest {
@@ -386,6 +402,7 @@ impl Variant {
             five_of_a_kind_full_house: rest.contains("+fh5"),
             four_of_a_kind_two_pairs: rest.contains("+tp4"),
             forced_order: rest.contains("+forced"),
+            single_pair_two_pairs: rest.contains("+tp1"),
         };
         (rules.id_suffix() == rest).then(|| Variant::scandinavian_with(rules))
     }
@@ -474,6 +491,38 @@ impl Variant {
         score_kind(&self.def.categories[c].kind, dice)
     }
 
+    /// A canonical text form of everything in the definition that affects play, one item per line. The table
+    /// file stores a hash of it, so a table cannot be used with a variant whose rules differ. Display names are
+    /// not included.
+    pub fn canonical_text(&self) -> String {
+        let d = &self.def;
+        let mut out = format!("variant {}\ndice {}\nrolls {}\n", d.id, d.dice, d.rolls);
+        for c in &d.categories {
+            let kind = match &c.kind {
+                CategoryKind::Upper { face } => format!("upper {face}"),
+                CategoryKind::OfAKind { n, scoring } => format!("of_a_kind {n} {scoring:?}"),
+                CategoryKind::TwoPairs { four_of_a_kind_counts, single_pair_counts } => {
+                    format!("two_pairs {four_of_a_kind_counts} {single_pair_counts}")
+                }
+                CategoryKind::FullHouse { scoring, five_of_a_kind_counts } => {
+                    format!("full_house {scoring:?} {five_of_a_kind_counts}")
+                }
+                CategoryKind::Straight { patterns, points } => format!("straight {patterns:?} {points}"),
+                CategoryKind::Chance => "chance".to_string(),
+                CategoryKind::AllSame { points } => format!("all_same {points}"),
+            };
+            out.push_str(&format!("category {} {kind}\n", c.id));
+        }
+        if let Some(b) = d.upper_bonus {
+            out.push_str(&format!("upper_bonus {} {}\n", b.threshold, b.points));
+        }
+        if let Some(b) = d.yahtzee_bonus {
+            out.push_str(&format!("yahtzee_bonus {} {:?}\n", b.points, b.joker));
+        }
+        out.push_str(&format!("forced_order {}\n", d.forced_order));
+        out
+    }
+
     /// The score of a joker in category `c`: full house and straights
     /// score their full points (the sum of the dice for a full house scored as the sum), everything else scores
     /// normally.
@@ -508,20 +557,21 @@ pub fn score_kind(kind: &CategoryKind, dice: &Dice) -> u16 {
                 OfAKindScoring::AllDice => dice.sum(),
             },
         },
-        CategoryKind::TwoPairs { four_of_a_kind_counts } => {
+        CategoryKind::TwoPairs { four_of_a_kind_counts, single_pair_counts } => {
             let pairs: Vec<u8> = (1..=6u8).rev().filter(|&f| counts[usize::from(f - 1)] >= 2).take(2).collect();
             match pairs.as_slice() {
                 [a, b] => 2 * (u16::from(*a) + u16::from(*b)),
-                _ => match highest_with(4) {
-                    Some(f) if *four_of_a_kind_counts => 4 * u16::from(f),
-                    _ => 0,
-                },
+                _ => {
+                    let four = highest_with(4).filter(|_| *four_of_a_kind_counts).map_or(0, |f| 4 * u16::from(f));
+                    let single = pairs.first().filter(|_| *single_pair_counts).map_or(0, |&f| 2 * u16::from(f));
+                    four.max(single)
+                }
             }
         }
         CategoryKind::FullHouse { scoring, five_of_a_kind_counts } => {
             let mut nonzero: Vec<u8> = counts.iter().copied().filter(|&c| c > 0).collect();
             nonzero.sort_unstable();
-            let is_full_house = nonzero == [2, 3] || (*five_of_a_kind_counts && nonzero.len() == 1 && nonzero[0] == 5);
+            let is_full_house = nonzero == [2, 3] || (*five_of_a_kind_counts && nonzero.len() == 1 && dice.len() >= 2);
             match (is_full_house, scoring) {
                 (false, _) => 0,
                 (true, FullHouseScoring::AllDice) => dice.sum(),

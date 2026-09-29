@@ -62,6 +62,14 @@ const CASES: &[(&str, &str, &str, u16)] = &[
     ("yatzy-scandinavian+tp4", "3 3 5 5 6", "two_pairs", 16),
     ("yatzy-scandinavian+tp4", "2 2 2 1 6", "two_pairs", 0),
     ("yatzy-scandinavian+tp4", "6 6 6 6 6", "full_house", 0),
+    // Single pair scores in two pairs (the scoring code behind the published 248.63).
+    ("yatzy-scandinavian+tp1", "1 2 2 4 5", "two_pairs", 4),
+    ("yatzy-scandinavian+tp1", "2 2 2 2 5", "two_pairs", 4),
+    ("yatzy-scandinavian+tp1", "6 6 6 6 6", "two_pairs", 12),
+    ("yatzy-scandinavian+tp1", "3 3 5 5 6", "two_pairs", 16),
+    ("yatzy-scandinavian+tp1", "2 2 2 5 5", "two_pairs", 14),
+    ("yatzy-scandinavian+tp1", "1 2 3 4 6", "two_pairs", 0),
+    ("yatzy-scandinavian+tp4+tp1", "2 2 2 2 5", "two_pairs", 8),
     // Forced order changes legality, not scores.
     ("yatzy-scandinavian+forced", "2 2 3 3 3", "full_house", 13),
     // American rules.
