@@ -77,14 +77,20 @@ running other heavy work, with load averages of 30 to 60 during the measurements
 
 | target | measured | load average |
 | --- | --- | --- |
-| build Scandinavian, one core: under 5 min | 28.5 s | 48 |
-| build Scandinavian, all cores: under 1 min | 4.1 s | 30 |
-| build American rules, one core | 11.3 s | 48 |
-| `state_value`: under 1 µs | 3.5 ns | 54 |
-| option values of one situation: under 50 µs | 0.7 µs (0 rerolls left), 7.9 µs (1), 13.8 µs (2) | 54 |
-| batch labelling: 100 000 situations per second per core | about 144 000 (mixed rerolls left) | 54 |
-| batch labelling through `option_values_batch`, one thread / all threads | 144 800 / 630 600 per second | 70 to 120 |
+| build Scandinavian, one core: under 5 min | 23.3 s | 84 to 161 |
+| build Scandinavian, all cores: under 1 min | 4.2 s (3.2 s at load 50) | 84 to 161 |
+| build American rules, one core | 10.2 s | 84 to 161 |
+| `state_value`: under 1 µs | 3.9 ns | 161 |
+| option values of one situation: under 50 µs | 0.9 µs (0 rerolls left), 5.9 µs (1), 9.8 µs (2) | 161 |
+| batch labelling, 100 000 distinct situations: 100 000 per second per core | about 128 000 (one thread); 200 000 to 262 000 (all threads) | 161 |
 | table size, f32: 8 MB | 8 388 768 bytes | |
 
+The batch figures use 100 000 distinct situations from the optimal and uniform export sources. An earlier figure
+(M3: 144 800 per second) came from a benchmark that cycled 20 000 situations and so stayed in cache; on distinct
+situations the code then ran at about 77 000 per second per core, below the target. Two changes in M4 fixed this
+without changing any value (the pinned table hashes and the golden set are unchanged): the value of a category
+is computed once per distinct score rather than once per hand, and keeps are enumerated from the turn model's
+precomputed lists instead of allocating and sorting per situation.
+
 Reproduce with `RAYON_NUM_THREADS=1 yatzy-solver build`, `yatzy-solver build`, and
-`cargo run --release --example bench`.
+`cargo run --release --example bench` (all numbers provisional until an idle-machine run before the release).

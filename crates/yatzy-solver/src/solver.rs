@@ -98,6 +98,8 @@ pub struct TurnModel {
 struct Scratch<T> {
     e: Vec<T>,
     k: Vec<T>,
+    /// The value of scoring `p` points in the category being evaluated, by `p` (see `final_values`).
+    memo: Vec<Option<T>>,
 }
 
 impl TurnModel {
@@ -163,7 +165,12 @@ impl TurnModel {
     }
 
     fn scratch<T: Value>(&self) -> Scratch<T> {
-        Scratch { e: vec![T::zero(); self.keeps.len() - self.first_roll], k: vec![T::zero(); self.keeps.len()] }
+        let max_points = self.scores.iter().copied().max().unwrap_or(0);
+        Scratch {
+            e: vec![T::zero(); self.keeps.len() - self.first_roll],
+            k: vec![T::zero(); self.keeps.len()],
+            memo: vec![None; usize::from(max_points) + 1],
+        }
     }
 
     /// The value of scoring hand `r` in category `c` in state `s` under the normal rules (no extra Yahtzee):
@@ -193,8 +200,12 @@ impl TurnModel {
     }
 
     /// The value of the best category for each full hand, after the last roll (step 1).
-    fn final_values<T: Value>(&self, s: &State, table: &[T], e: &mut [T]) {
+    ///
+    /// Within a category, the value depends on the hand only through the points it scores there, so it is
+    /// computed once per distinct score (`memo`), with the same arithmetic as for each hand.
+    fn final_values<T: Value>(&self, s: &State, table: &[T], e: &mut [T], memo: &mut [Option<T>]) {
         let v = &self.variant;
+        let hands = e.len();
         let open = v.all_mask() & !s.filled;
         let legal = if v.forced_order() { open & open.wrapping_neg() } else { open };
         let mut first = true;
@@ -202,8 +213,17 @@ impl TurnModel {
         while bits != 0 {
             let c = bits.trailing_zeros() as usize;
             bits &= bits - 1;
+            memo.iter_mut().for_each(|m| *m = None);
             for (r, slot) in e.iter_mut().enumerate() {
-                let val = self.fast_score_value(s, c, r, table);
+                let p = usize::from(self.scores[c * hands + r]);
+                let val = match &memo[p] {
+                    Some(x) => x.clone(),
+                    None => {
+                        let x = self.fast_score_value(s, c, r, table);
+                        memo[p] = Some(x.clone());
+                        x
+                    }
+                };
                 if first {
                     *slot = val;
                 } else {
@@ -267,8 +287,8 @@ impl TurnModel {
 
     /// V(s) from the table entries of the states after `s`.
     fn state_value<T: Value>(&self, s: &State, table: &[T], scr: &mut Scratch<T>) -> T {
-        let Scratch { e, k } = scr;
-        self.final_values(s, table, e);
+        let Scratch { e, k, memo } = scr;
+        self.final_values(s, table, e, memo);
         for level in 0..self.variant.rolls() {
             self.keep_values(e, k);
             if level + 1 < self.variant.rolls() {
@@ -350,7 +370,7 @@ impl TurnModel {
         let rolls = usize::from(self.variant.rolls());
         let mut hands = Vec::with_capacity(rolls);
         let mut keeps = Vec::with_capacity(rolls);
-        self.final_values(s, table, &mut scr.e);
+        self.final_values(s, table, &mut scr.e, &mut scr.memo);
         for level in 0..rolls {
             hands.push(scr.e.clone());
             self.keep_values(&scr.e, &mut scr.k);
@@ -376,17 +396,19 @@ impl TurnModel {
         if sit.rolls_left > 0 {
             let j = usize::from(sit.rolls_left);
             let mut scr = self.scratch();
-            self.final_values(&sit.state, table, &mut scr.e);
+            self.final_values(&sit.state, table, &mut scr.e, &mut scr.memo);
             for level in 0..j {
                 self.keep_values(&scr.e, &mut scr.k);
                 if level + 1 < j {
                     self.hand_values(&scr.k, &mut scr.e);
                 }
             }
-            let subs = sit.dice.sub_multisets();
-            for keep in &subs[..subs.len() - 1] {
-                let i = self.keep_index(keep).expect("keep is a multiset of at most n dice");
-                out.push((Action::Keep(*keep), scr.k[i].clone()));
+            // The hand's sub-multisets are precomputed in keep order; the last is the hand itself.
+            let r = self.hand_index(&sit.dice).expect("a full hand");
+            let subs = &self.subs[self.subs_off[r] as usize..self.subs_off[r + 1] as usize];
+            for &i in &subs[..subs.len() - 1] {
+                let i = usize::from(i);
+                out.push((Action::Keep(self.keeps[i]), scr.k[i].clone()));
             }
         }
         out

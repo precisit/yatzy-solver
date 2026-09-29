@@ -47,7 +47,7 @@ impl Variant {
         let codes = self.keep_codes();
         let start = codes.partition_point(|d| d.len() < k.len());
         let end = codes.partition_point(|d| d.len() <= k.len());
-        codes[start..end].binary_search_by(|d| d.faces().cmp(&k.faces())).ok().map(|i| start + i)
+        codes[start..end].binary_search_by(|d| crate::dice::cmp_faces(d, k)).ok().map(|i| start + i)
     }
 }
 
