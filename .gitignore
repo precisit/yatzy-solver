@@ -19,3 +19,6 @@ node_modules/
 /exports/
 
 .DS_Store
+
+# Internal agent discussion (not part of the repository)
+DISCOURSE.md

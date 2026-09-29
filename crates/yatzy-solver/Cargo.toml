@@ -1,0 +1,13 @@
+[package]
+name = "yatzy-solver"
+description = "Exact solver, rules engine and notation for Scandinavian Yatzy and American rules (Yahtzee-compatible)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1"
