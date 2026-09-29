@@ -1,0 +1,18 @@
+[package]
+name = "yatzy-solver-cli"
+description = "Command-line interface for yatzy-solver: build tables, query situations, verify the published values"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "yatzy-solver"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+num-rational = "0.4"
+num-traits = "0.2"
+yatzy-solver = { path = "../yatzy-solver" }
