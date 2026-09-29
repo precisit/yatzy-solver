@@ -15,19 +15,48 @@ final score. Values are exact up to f64 rounding (or f32, for a solver loaded fr
 | `best_action(situation)` | the first of the best options |
 | `regret(situation, action)` | the expected points lost against a best option: 0 for any best option, an error for an illegal action |
 
+- **Score so far and points to come.** The score so far (`Game::total`, and `score_so_far` in exports)
+  includes every bonus already earned; values include every bonus not yet earned. So at every decision, the
+  score so far plus the points still to come is the final score, exactly; a test checks this at every decision
+  of logged games, including games where the upper bonus is earned. Expected final score = score so far +
+  value.
 - The value of **scoring** in a category is the points it earns (with any bonus) plus `state_value` of the next
   state.
 - The value of a **keep** is the expectation, over every outcome of the reroll, of the value of the resulting
   situation.
 - **Ties** are real: for example, on the last turn with only Yatzy open and 1 1 2 2 3 showing, keeping 1 1 and
-  keeping 2 2 are equally good. Equal values are sums of the same terms in different orders, so they can differ
-  in the last bits; `TIE_EPSILON` absorbs that.
+  keeping 2 2 are equally good. Options within `Solver::tie_epsilon()` of each other are tied; see below.
 - Queries on situations that cannot occur (a finished game, the wrong number of dice, too many rerolls left, an
   inconsistent state) return an error, never a panic.
 
 The tests check these definitions independently of the solver's turn tables: each keep's value is recomputed by
 enumerating every reroll outcome through the rules engine, each category's by `apply_score` and
 `state_value`, and V by the expectation of the first roll (`tests/queries.rs`).
+
+### Tie tolerance
+
+Measured with `cargo run --release --example ties` on 100 000 situations per variant (half reached in optimal
+play, half from uniformly random states), comparing an f64 solver with one loaded from an f32 table:
+
+| | Scandinavian | American |
+| --- | --- | --- |
+| largest gap between exactly tied options, f64 | 2.8e-14 | 2.8e-14 |
+| largest gap between the same options, f32 table | 1.8e-15 | 2.8e-14 |
+| smallest gap between different options (best to next), f64 | 5.7e-7 | 3.1e-5 |
+| largest error of an option value, f32 table against f64 | 7.6e-6 | 1.5e-5 |
+| situations whose tie set differs from f64, f32 table with tolerance 1e-9 | 0 | 0 |
+| the same with tolerance 6.1e-5 (4 x the f32 error) | 5 | 1 |
+
+- **f64:** the tolerance is 1e-9, about five orders of magnitude above the tie noise and two below the
+  smallest real gap.
+- **f32:** exactly tied options are computed from the same rounded table entries, so they stay tied to about
+  1e-14, and the same 1e-9 gives the same tie sets as f64 on every sampled situation. A tolerance scaled to the
+  f32 value error would merge genuinely different options. **But no tolerance can separate everything for f32
+  tables:** option values carry up to 1.5e-5 of error, which is more than the smallest real gaps (5.7e-7), so
+  from an f32 table the order of two options closer than about 3e-5 is not reliable (in the sample, the best
+  action never changed). Use an f64 table when those distinctions matter.
+- The test suite checks that tie sets from f32 and f64 tables agree on about 22 000 situations (and requires at
+  least 50 of them to have ties).
 
 ### Batch
 
@@ -96,12 +125,12 @@ yatzy-solver simulate --games 100 --seed 1 --policy random --log games.jsonl
 
 ## Results (M3)
 
-One million games under the optimal policy, seed 2026:
+One million games under the optimal policy, seed 2026, generator version 1:
 
 | variant | exact mean | simulated mean (95% interval) | std dev | median |
 | --- | --- | --- | --- | --- |
-| `american` | 254.5896 | 254.5949 (254.4782 to 254.7117) | 59.5551 | 248 |
-| `yatzy-scandinavian` | 248.4400 | 248.4620 (248.3866 to 248.5375) | 38.4846 | 249 |
+| `american` | 254.5896 | 254.5405 (254.4238 to 254.6572) | 59.5420 | 248 |
+| `yatzy-scandinavian` | 248.4400 | 248.4459 (248.3705 to 248.5212) | 38.4378 | 249 |
 
 For American rules the published standard deviation is 59.6117 and the median 248 (Verhoeff); the exact
 distribution is milestone M7.

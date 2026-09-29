@@ -9,9 +9,15 @@ use crate::solver::TurnModel;
 use crate::table::{Precision, Table};
 use crate::variant::Variant;
 
-/// Two option values closer than this are a tie. Values are sums of the same terms in different orders, so
-/// exact ties can differ in the last bits.
+/// Two option values closer than this are a tie, for a solver with f64 values. Exactly tied options are sums of
+/// the same terms in different orders and differ by at most about 3e-14; the smallest gap between genuinely
+/// different options measured on 200 000 situations is 5.7e-7 (docs/queries.md).
 pub const TIE_EPSILON: f64 = 1e-9;
+
+/// The tie tolerance for a solver loaded from an f32 table. Exactly tied options share their table entries, so
+/// they stay within about 3e-14 in f32 too, and the same tolerance gives the same tie sets as f64 on every
+/// measured situation, while 4 x the f32 value error (6e-5) would merge real near-ties (docs/queries.md).
+pub const TIE_EPSILON_F32: f64 = 1e-9;
 
 /// An option and its exact expected remaining score.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,6 +53,15 @@ impl Solver {
 
     pub fn model(&self) -> &TurnModel {
         &self.model
+    }
+
+    /// The tolerance within which two option values are a tie: [`TIE_EPSILON`] for f64 values,
+    /// [`TIE_EPSILON_F32`] for values from an f32 table.
+    pub fn tie_epsilon(&self) -> f64 {
+        match self.precision {
+            Precision::F64 => TIE_EPSILON,
+            Precision::F32 => TIE_EPSILON_F32,
+        }
     }
 
     /// The precision of the table the values came from.
@@ -103,11 +118,13 @@ impl Solver {
         Ok(best_value(&self.option_values(sit)?))
     }
 
-    /// All the best options (every option within [`TIE_EPSILON`] of the maximum), in legal-action order.
+    /// All the best options (every option within [`Solver::tie_epsilon`] of the maximum), in legal-action
+    /// order.
     pub fn best_options(&self, sit: &Situation) -> Result<Vec<OptionValue>, RulesError> {
         let all = self.option_values(sit)?;
         let best = best_value(&all);
-        Ok(all.into_iter().filter(|o| o.value >= best - TIE_EPSILON).collect())
+        let eps = self.tie_epsilon();
+        Ok(all.into_iter().filter(|o| o.value >= best - eps).collect())
     }
 
     /// The best action; among ties, the first in legal-action order (categories before keeps).
@@ -116,7 +133,7 @@ impl Solver {
     }
 
     /// The expected points lost by choosing `action` instead of a best option. Zero for a best option (ties
-    /// within [`TIE_EPSILON`] count as zero); an error when the action is not legal.
+    /// within [`Solver::tie_epsilon`] count as zero); an error when the action is not legal.
     pub fn regret(&self, sit: &Situation, action: &Action) -> Result<f64, RulesError> {
         let all = self.option_values(sit)?;
         let best = best_value(&all);
@@ -125,7 +142,7 @@ impl Solver {
             Action::Score(c) => RulesError::CategoryNotAllowed(*c),
         })?;
         let r = best - chosen.value;
-        Ok(if r <= TIE_EPSILON { 0.0 } else { r })
+        Ok(if r <= self.tie_epsilon() { 0.0 } else { r })
     }
 
     /// Batch [`Solver::state_value`].

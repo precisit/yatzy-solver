@@ -254,3 +254,54 @@ fn simulated_means_are_within_their_interval_of_the_exact_mean() {
         assert!(z.abs() < 4.0, "{id}: simulated mean {} is {z:.1} standard errors from {exact}", sum.mean);
     }
 }
+
+#[test]
+fn tie_sets_agree_between_f32_and_f64_tables() {
+    use yatzy_solver::{Precision, Table};
+    for id in ["yatzy-scandinavian", "american"] {
+        let f64s = Solver::build(&Variant::by_id(id).unwrap());
+        let v = f64s.variant().clone();
+        let f32s = Solver::from_table(&Table::from_values(&v, Precision::F32, f64s.values().to_vec()));
+        let mut sits: Vec<Situation> = Vec::new();
+        for log in f64s.simulate_optimal(300, 8, true).logs {
+            sits.extend(log.decisions.iter().map(|d| d.situation));
+        }
+        let mut rng = Rng::new(31);
+        sits.extend((0..10_000).map(|_| random_situation(&v, &mut rng)));
+        let mut tied = 0;
+        for sit in &sits {
+            let a: Vec<Action> = f64s.best_options(sit).unwrap().iter().map(|o| o.action).collect();
+            let b: Vec<Action> = f32s.best_options(sit).unwrap().iter().map(|o| o.action).collect();
+            assert_eq!(a, b, "{id}: {}", v.format_situation(sit));
+            tied += usize::from(a.len() > 1);
+        }
+        // The sample must contain ties, or it tests nothing.
+        assert!(tied > 50, "{id}: only {tied} situations with ties");
+    }
+}
+
+#[test]
+fn score_so_far_plus_points_to_come_is_the_final_score() {
+    // score_so_far includes every bonus already earned; the points still to come include every bonus not yet
+    // earned. Checked at every decision of every logged game, with the card replayed independently.
+    for id in ["american", "yatzy-scandinavian"] {
+        let solver = Solver::build(&Variant::by_id(id).unwrap());
+        let v = solver.variant();
+        let mut upper_bonus_games = 0;
+        for log in solver.simulate_optimal(300, 3, true).logs {
+            let mut card = Game::new();
+            for (i, d) in log.decisions.iter().enumerate() {
+                let score_so_far = card.total();
+                let to_come: u16 = log.decisions[i..].iter().filter_map(|x| x.scored).map(|s| s.total()).sum();
+                assert_eq!(score_so_far + to_come, log.final_score, "{id} game {}", log.game);
+                assert_eq!(*card.state(), d.situation.state);
+                if let Action::Score(c) = d.action {
+                    card.score(v, &d.situation.dice, c).unwrap();
+                }
+            }
+            assert_eq!(card.total(), log.final_score);
+            upper_bonus_games += usize::from(card.upper_bonus() > 0);
+        }
+        assert!(upper_bonus_games > 50, "{id}: the upper bonus must be exercised");
+    }
+}
