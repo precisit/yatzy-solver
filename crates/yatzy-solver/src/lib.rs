@@ -10,6 +10,7 @@
 //! - [`table`]: the table file format.
 //! - [`query`]: the value of every option in a situation, best options, regret, batch queries.
 //! - [`simulate`]: seeded games under the optimal policy or a caller's policy.
+//! - [`export`]: sampled situations with every option's value, as JSON Lines or Parquet (feature `parquet`).
 //! - [`verify`]: the brute-force reference solver, reduced games and published values (feature `verify`).
 //!
 //! ```
@@ -25,6 +26,7 @@
 
 pub mod codes;
 pub mod dice;
+pub mod export;
 pub mod notation;
 pub mod query;
 pub mod rules;
