@@ -300,6 +300,11 @@ covered above:
    253.9702412). Which rules it uses is unknown; it does not affect the validation value. Recorded, not pursued.
 5. Castux/yahtzee publishes 248.4394 for Scandinavian Yatzy; this solver gives 248.4399894, a gap of 0.0006.
    Is it a rule difference or rounding or precision in their code? It does not block anything.
+   **Resolved in M3:** the rules are identical (their `Yatzy.cs`). Castux computes in single precision and
+   builds each outcome probability by adding `(float)(1 / 6^n)` once per ordered roll into a float, so the
+   distributions do not sum to 1 (five dice: 1 - 2.98e-7); value leaks at every expectation. A copy of their
+   float arithmetic gives 248.4394531, their published tables give the same, and the same solve in f64 with
+   exact probabilities gives 248.4399894.
 
 ## Changelog
 
@@ -309,5 +314,6 @@ covered above:
 - 2026-09-29: decisions after the M2 review: Scandinavian validation value 248.4399894 (sections 1, 5.3, M2),
   with 248.63 as a check of the published code; ids `american` and `five_of_a_kind` (2.2); values hash versus
   file hash (5.3, 5.4); 10.1 decided; 10.5 added.
+- 2026-09-29: 10.5 resolved (single-precision probabilities in Castux/yahtzee; same rules).
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
