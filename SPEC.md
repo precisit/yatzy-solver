@@ -248,9 +248,23 @@ covered above:
 1. **License: MIT** (decided 2026-09-29), for the code and the prebuilt tables.
 2. **Visibility:** the repository is private for now; making it public is the owner's decision, expected once M2
    reproduces the published values. Do not publish packages (crates.io, PyPI, npm) before that decision.
-3. **Names and trademarks (to confirm before publishing):** "Yahtzee" is a Hasbro trademark; call that variant "American rules
-   (Yahtzee-compatible)" in docs and code. Check the trademark status of "Yatzy" in the Nordic countries before
-   choosing the repository and package names; `optimal-yatzy` or a neutral name are fallbacks.
+3. **Names and trademarks.** "Yahtzee" is a Hasbro trademark: call that variant "American rules
+   (Yahtzee-compatible)" in docs and code, and never use "Yahtzee" as a product or package name.
+
+   **"Yatzy" in Sweden (checked 2026-09-29):**
+   - **The Swedish national register (PRV)** has no registration of the plain word "Yatzy". There are registered
+     compound marks: YATZY CASINO, YATZY LAS VEGAS and YATZY MACAU (all classes 9 and 28, valid until 2033).
+     YATZY MONTE CARLO was withdrawn, Jätte Yatzy dismissed, and YATZY LOTTEN lapsed in 2009.
+   - **EU trade marks**, which also cover Sweden, are compound marks too: Zoo Yatzy, farm yatzy, Yatzy ultimate
+     (figurative), WORD YATZY and Yatzy Blitz (classes 9, 16, 28, 41, 42).
+   - **International registrations designating Sweden** (WIPO Global Brand Database) add nothing beyond those EU
+     marks.
+
+   So the game name itself is not registered in Sweden; the registered marks protect particular compound names.
+   Using "Yatzy" descriptively for a solver of the game, as in `yatzy-solver`, should be low risk. Avoid
+   product names that resemble a registered compound (for example "Yatzy" plus a place or a brand word). A US
+   filing for "YATZY" exists (serial 86454511, status not verified). This is a register check, not legal advice:
+   before a commercial app is named, have an IP lawyer confirm, including Norway, Denmark, Finland and the US.
 
 ## 10. Open questions
 
@@ -263,3 +277,5 @@ covered above:
 ## Changelog
 
 - 2026-09-29: v0.1, initial specification; license MIT; repository private.
+- 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
+  word; the name `yatzy-solver` is kept.
