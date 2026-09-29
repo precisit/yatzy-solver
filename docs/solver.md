@@ -83,6 +83,7 @@ running other heavy work, with load averages of 30 to 60 during the measurements
 | `state_value`: under 1 µs | 3.5 ns | 54 |
 | option values of one situation: under 50 µs | 0.7 µs (0 rerolls left), 7.9 µs (1), 13.8 µs (2) | 54 |
 | batch labelling: 100 000 situations per second per core | about 144 000 (mixed rerolls left) | 54 |
+| batch labelling through `option_values_batch`, one thread / all threads | 144 800 / 630 600 per second | 70 to 120 |
 | table size, f32: 8 MB | 8 388 768 bytes | |
 
 Reproduce with `RAYON_NUM_THREADS=1 yatzy-solver build`, `yatzy-solver build`, and

@@ -72,7 +72,8 @@ The published 248.63 (Larsson and Sjöberg, KTH, 2012) differs because of the au
 - With that scoring (`verify::larsson_sjoberg_2012()`, id `yatzy-scandinavian-ls2012-code`; a check, not a
   playable variant) this solver gives **248.6328539**, which rounds to 248.63.
 - Two independent open-source solvers agree with 248.44 for the stated rules: `Castux/yahtzee` reports 248.4394
-  and `Laurii1i/Yatzy` about 248.44.
+  and `Laurii1i/Yatzy` about 248.44. Castux uses the same rules; its fourth decimal differs because it computes
+  in single precision, with outcome probabilities that do not quite sum to 1 (SPEC 10.5).
 - Sederblad and Törnebohm (KTH, 2013) did not solve the full game; later theses cite 248.63 without recomputing
   it.
 
