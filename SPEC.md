@@ -137,6 +137,14 @@ This variant exists to validate the solver against the best-known published numb
   JavaScript.
 - **F4. Simulate.** Play N games with a seeded random generator under the optimal policy or a caller-supplied
   policy. Return the score distribution and per-game logs.
+  - **The generator is a stable contract, version 1** (docs/queries.md): xoshiro256** seeded by SplitMix64,
+    with one dice stream per (seed, game, turn), derived so that distinct (game, turn) pairs cannot collide,
+    and every roll drawing a full block of dice (a reroll of m dice uses the first m). The policy has a
+    separate stream per game. The dice therefore do not depend on the policy (common random numbers), so two
+    players can be compared on identical dice.
+  - Logs and exports record the generator version (`rng 1`); changing the generator means a new version.
+  - `best_action` and the optimal simulator break ties by taking the first best option in legal order. This is
+    a reproducibility rule, not a preference, and not a training label.
 - **F5. Export situations.** Sample situations with all their option values, from:
   - optimal-play trajectories;
   - trajectories with a configurable share of random or perturbed decisions, which cover states a good player
@@ -207,7 +215,7 @@ Per row:
 - the stable notation (F6);
 - the list of legal options, each with its type, notation and exact expected value;
 - the best value;
-- the sampling source (optimal, perturbed, uniform) and the seed.
+- the sampling source (optimal, perturbed, uniform), the seed and the generator version.
 
 ### 5.6 Quality of the release
 
@@ -315,5 +323,7 @@ covered above:
   with 248.63 as a check of the published code; ids `american` and `five_of_a_kind` (2.2); values hash versus
   file hash (5.3, 5.4); 10.1 decided; 10.5 added.
 - 2026-09-29: 10.5 resolved (single-precision probabilities in Castux/yahtzee; same rules).
+- 2026-09-30: F4 fixes the generator contract (version 1: per-turn dice streams, a separate policy stream) and
+  the tie-breaking rule; 5.5 export rows carry the generator version.
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
