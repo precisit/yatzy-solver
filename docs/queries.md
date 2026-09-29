@@ -43,26 +43,45 @@ learner's, or `RandomPolicy`. A policy that chooses an illegal action stops the 
 error. Results hold every final score, summary statistics (mean, standard deviation and error, minimum,
 median, maximum), percentiles and a histogram, and optionally a log of every decision per game.
 
-### The generator (stable contract)
+### The generator (stable contract, version 1)
 
-The same seed gives the same games in every version and every language binding:
+The same seed gives the same games in every version and every language binding (the bindings call the Rust
+code). Logs and exports record the generator version as `rng 1`, so a future change cannot silently mix
+datasets.
 
-- xoshiro256** (Blackman and Vigna), with its state filled by four outputs of SplitMix64;
-- game `i` of a run with seed `s` seeds SplitMix64 with `s ^ (i * 0xD1B54A32D192ED03)` (64-bit wrapping);
-- a die is `1 + x % 6` for the next output `x`, drawn again while `x >= 2^64 - (2^64 mod 6)`;
-- a roll of `m` dice draws `m` dice in turn; the first roll of a turn is five dice, a reroll draws only the
-  dice not kept.
+- The generator is xoshiro256** (Blackman and Vigna). Its state is filled by four consecutive outputs of
+  SplitMix64 started from the stream's seed.
+- `mix(x)` is one SplitMix64 step from state `x`: `z = x + 0x9E3779B97F4A7C15`, then
+  `z = (z ^ z >> 30) * 0xBF58476D1CE4E5B9`, `z = (z ^ z >> 27) * 0x94D049BB133111EB`, `z ^ z >> 31`
+  (64-bit wrapping). It is a bijection.
+- **Dice:** turn `t` (0-based) of game `g` in a run with seed `s` has its own stream, seeded with
+  `mix(mix(s ^ 0x6469636500000001) ^ (g << 8 | t))`. Every roll in the turn draws a full block of `n` dice (`n`
+  = 5), in order. The first roll uses the whole block; a reroll of `m` dice uses the first `m` of its block.
+- **Policy:** game `g` gives the policy a separate stream, seeded with `mix(mix(s ^ 0x706f6c6963790001) ^ g)`.
+- **A die** is `1 + x % 6` for the next output `x`, drawn again while `x >= 2^64 - (2^64 mod 6)`.
+- Game indices are below 2^56 and turns below 256. For a fixed seed, `key -> mix(c ^ key)` is a bijection, so
+  distinct (game, turn) pairs never share a stream.
 
-Each game has its own stream, so the results do not depend on how the games are spread over threads. The test
-suite pins the first outputs against an independent implementation.
+**Common random numbers.** The dice do not depend on the policy: under the same seed, roll `r` of turn `t` is
+the same for every policy, and a randomizing policy never shifts the dice. Comparing a player with optimal
+play on the same seed therefore compares them on identical dice, which needs far fewer games for the same
+confidence than independent dice. Each game has its own streams, so results do not depend on how the games are
+spread over threads. The test suite pins the streams against an independent implementation, and checks that
+the optimal and the random policy see the same first roll of every turn.
+
+### Tie-breaking
+
+`best_action` and the optimal simulator take the first best option in legal-action order. This is a
+reproducibility rule, not a preference among equally good options: training data should never use
+`best_action` as a label. The export carries every option's value, which represents ties as they are.
 
 ### Game logs
 
-`GameLog::to_lines` gives one line per decision in the stable notation, `<situation> => <action>`, then
-`final <score>`. The CLI writes JSON Lines, one object per game:
+`GameLog::to_lines` gives a header `rng 1 | seed <s> | game <g>`, one line per decision in the stable notation,
+`<situation> => <action>`, then `final <score>`. The CLI writes JSON Lines, one object per game:
 
 ```json
-{"variant":"yatzy-scandinavian","seed":1,"game":0,"score":261,"decisions":[{"situation":"dice 2 3 5 6 6 | rolls 2 | upper 0 | filled -","action":"keep 6 6","points":null}, ...]}
+{"variant":"yatzy-scandinavian","rng":1,"seed":1,"game":0,"score":189,"decisions":[{"situation":"dice 1 2 6 6 6 | rolls 2 | upper 0 | filled -","action":"keep 6 6 6","points":null}, ...]}
 ```
 
 `points` is the total a category earned (bonuses included), or `null` for a keep.

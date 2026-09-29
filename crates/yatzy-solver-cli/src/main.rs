@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use num_rational::BigRational;
-use yatzy_solver::simulate::{RandomPolicy, simulate};
+use yatzy_solver::simulate::{RNG_VERSION, RandomPolicy, simulate};
 use yatzy_solver::table::hex;
 use yatzy_solver::verify::{BruteForce, PUBLISHED, reduced_variants};
 use yatzy_solver::{Action, Precision, Solver, State, Table, TurnModel, Variant};
@@ -194,7 +194,7 @@ fn run(cli: Cli) -> Result<bool, String> {
                         })
                         .collect();
                     out.push_str(&format!(
-                        "{{\"variant\":\"{id}\",\"seed\":{seed},\"game\":{},\"score\":{},\"decisions\":[{}]}}\n",
+                        "{{\"variant\":\"{id}\",\"rng\":{RNG_VERSION},\"seed\":{seed},\"game\":{},\"score\":{},\"decisions\":[{}]}}\n",
                         g.game,
                         g.final_score,
                         decisions.join(",")

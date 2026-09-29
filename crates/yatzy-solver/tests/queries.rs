@@ -155,15 +155,49 @@ fn batch_equals_single() {
 
 #[test]
 fn generator_is_the_documented_xoshiro256starstar() {
-    // Reference values from an independent implementation of SplitMix64 seeding and xoshiro256**.
+    use yatzy_solver::simulate::mix;
+    // Reference values from an independent implementation of SplitMix64, xoshiro256** and the stream
+    // derivation (docs/queries.md). mix(0) is the canonical first SplitMix64 output.
+    assert_eq!(mix(0), 0xe220a8397b1dcdaf);
+    assert_eq!(mix(12345), 0x22118258a9d111a0);
     let mut r = Rng::new(0);
     assert_eq!(
         [r.next_u64(), r.next_u64(), r.next_u64()],
         [0x99ec5f36cb75f2b4, 0xbf6e1f784956452a, 0x1a5f849d4933e6e0]
     );
-    let mut r = Rng::for_game(42, 7);
-    let dice: Vec<u8> = (0..10).map(|_| r.die()).collect();
-    assert_eq!(dice, [3, 5, 1, 1, 3, 6, 4, 6, 6, 6]);
+    let mut r = Rng::for_dice(42, 7, 3);
+    let dice: Vec<u8> = (0..15).map(|_| r.die()).collect();
+    assert_eq!(dice, [5, 4, 5, 6, 2, 3, 1, 4, 2, 1, 5, 6, 2, 4, 2]);
+    let mut r = Rng::for_policy(42, 7);
+    assert_eq!([r.next_u64(), r.next_u64()], [0x56de4991b7cb08eb, 0x292c127d7a2eec8c]);
+    // Blocks: a reroll of m dice uses the first m of a full block of five.
+    let mut a = Rng::for_dice(42, 7, 3);
+    let mut b = Rng::for_dice(42, 7, 3);
+    assert_eq!(a.roll_block(5, 2), Dice::from_faces(&[5, 4]).unwrap());
+    assert_eq!(b.roll_block(5, 5), Dice::from_faces(&[5, 4, 5, 6, 2]).unwrap());
+    assert_eq!(a.roll_block(5, 3), b.roll_block(5, 3));
+}
+
+#[test]
+fn dice_do_not_depend_on_the_policy() {
+    // Common random numbers: under the same seed, every policy sees the same first roll of every turn, and the
+    // same dice on each reroll it shares.
+    let solver = Solver::build(&Variant::scandinavian());
+    let v = solver.variant();
+    for game in 0..50 {
+        let opt = play_game(v, &mut OptimalPolicy { solver: &solver }, 11, game, true).unwrap();
+        let rnd = play_game(v, &mut RandomPolicy, 11, game, true).unwrap();
+        let firsts = |log: &yatzy_solver::simulate::GameLog| -> Vec<Dice> {
+            log.decisions.iter().filter(|d| d.situation.rolls_left == v.rolls() - 1).map(|d| d.situation.dice).collect()
+        };
+        // Each turn's first roll appears once per turn in the log (the first decision of the turn).
+        let (a, b) = (firsts(&opt), firsts(&rnd));
+        assert_eq!(a.len(), v.num_categories());
+        assert_eq!(a, b, "game {game}");
+        for t in 0..v.num_categories() as u32 {
+            assert_eq!(a[t as usize], Rng::for_dice(11, game, t).roll_block(5, 5));
+        }
+    }
 }
 
 #[test]
