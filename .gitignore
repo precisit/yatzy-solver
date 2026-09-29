@@ -1,0 +1,21 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+*.so
+
+# WebAssembly / Node
+/pkg/
+node_modules/
+
+# Built tables and exports (published as release assets, not committed)
+/tables/
+/exports/
+
+.DS_Store
