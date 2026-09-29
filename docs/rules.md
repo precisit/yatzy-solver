@@ -53,19 +53,30 @@ Each switch adds a suffix to the variant id, in this order:
 | --- | --- | --- |
 | `+fh5` | five of a kind counts as a full house (scoring the sum of the dice) | off |
 | `+tp4` | four of a kind counts as two pairs (scoring 4 x v) | off |
+| `+tp1` | a single pair scores in Two pairs (as 2 x v); see below, not a rule anyone plays by | off |
 | `+forced` | forced order ("tvångsyatzy"): categories are filled top to bottom | off |
 
 For example `yatzy-scandinavian+fh5+forced`.
 
 ### The published value 248.63 (SPEC 10.1)
 
-The published expected score 248.63 comes from Larsson and Sjöberg (KTH, 2012), whose rules (their appendix A,
-based on Alga's rule set) match the defaults above: the two pairs must be different ("1, 2, 2, 2, 2" is not two
-pairs), five of a kind is not a full house ("6, 6, 6, 6, 6 is not a valid house"), three and four of a kind score
-3v and 4v, the straights are 1-2-3-4-5 (15) and 2-3-4-5-6 (20), the full house scores the sum, any category may
-be scratched, and there is no forced order. Their model caps the upper total at 63, as ours does. Sederblad and
-Törnebohm (KTH, 2013) did not solve the full game; they cite 248.63 but do not confirm it independently. Whether
-the solver reproduces 248.63 is recorded with milestone M2.
+The expected score under optimal play with the default rules is **248.4399894**. The published 248.63
+(Larsson and Sjöberg, KTH, 2012) differs because of the authors' code, not their rules:
+
+- Their stated rules (appendix A, based on Alga's rule set) match the defaults above: the two pairs must be
+  different ("1, 2, 2, 2, 2" is not two pairs), five of a kind is not a full house, three and four of a kind
+  score 3v and 4v, the straights are 1-2-3-4-5 (15) and 2-3-4-5-6 (20), the full house scores the sum, any
+  category may be scratched, there is no forced order, and the upper total is capped at 63.
+- Their published Java code (`ansjob/optimalt-yatzy`, `ScoreCard.scorePair`) scores Two pairs as twice the
+  highest pair plus twice the second-highest pair, **or plus 0 when there is no second pair**. A hand with a
+  single pair therefore scores in Two pairs: 1 2 2 4 5 scores 4 and 6 6 6 6 6 scores 12.
+- With that scoring (`yatzy-scandinavian+tp1`) this solver gives **248.6328539**, which rounds to 248.63.
+- Two independent open-source solvers agree with 248.44 for the stated rules: `Castux/yahtzee` reports 248.4394
+  and `Laurii1i/Yatzy` about 248.44.
+- Sederblad and Törnebohm (KTH, 2013) did not solve the full game; later theses cite 248.63 without recomputing
+  it.
+
+For reference, the other switches give: `+fh5` 248.4680909, `+tp4` 248.6440589, `+fh5+tp4` 248.6748827.
 
 ## American rules, Yahtzee-compatible (`yahtzee`)
 
@@ -96,12 +107,15 @@ A hand of five of a kind while the Yahtzee box is already filled is an **extra Y
 
 Published sources differ on when the joker applies and where the hand may go, so the joker rule is a switch:
 
-| id | joker rule |
-| --- | --- |
-| `yahtzee` | **Free joker** (Verhoeff's rules, used for the published 254.5896): the joker applies when the Yahtzee box and the upper box of the hand's face are both filled (with any score, zero included). The player may score the hand in any open box. |
-| `yahtzee+forced-joker` | **Forced joker** (the official placement rule): when the Yahtzee box is filled (with any score), the upper box of the hand's face must be used if open; otherwise any open lower box, with the joker applying; otherwise any open upper box, which scores 0. |
-| `yahtzee+no-joker` | The Yahtzee bonus without the joker. |
-| `yahtzee+no-bonus` | Neither the Yahtzee bonus nor the joker. Verhoeff and Glenn report 245.87 for this game. |
+| id | joker rule | expected score |
+| --- | --- | --- |
+| `yahtzee` | **Free joker** (Verhoeff's rules, used for the published 254.5896): the joker applies when the Yahtzee box and the upper box of the hand's face are both filled (with any score, zero included). The player may score the hand in any open box. | 254.5896095 |
+| `yahtzee+forced-joker` | **Forced joker** (the official placement rule): when the Yahtzee box is filled (with any score), the upper box of the hand's face must be used if open; otherwise any open lower box, with the joker applying; otherwise any open upper box, which scores 0. | 254.5877287 |
+| `yahtzee+no-joker` | The Yahtzee bonus without the joker. | 253.9702412 |
+| `yahtzee+no-bonus` | Neither the Yahtzee bonus nor the joker. Verhoeff and Glenn report 245.87 for this game. | 245.8707745 |
+
+Verhoeff's trivia page also gives an exact fraction (Liese and Kelly, 2017) that evaluates to 254.58937. It
+matches none of the joker rules above; which rules it was computed under is an open question.
 
 The state of the American variant includes the Yahtzee box status (open, 0 or 50), which the notation records.
 
