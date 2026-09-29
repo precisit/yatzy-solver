@@ -3,8 +3,8 @@
 
 #![cfg(feature = "verify")]
 
-use yatzy_solver::verify::PUBLISHED;
 use yatzy_solver::table::hex;
+use yatzy_solver::verify::PUBLISHED;
 use yatzy_solver::{Precision, State, Table, TurnModel, Variant};
 
 const PINNED: &[(&str, f64)] = &[
