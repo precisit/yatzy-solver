@@ -26,6 +26,9 @@ package is published.
 - **Scandinavian Yatzy** was solved in two KTH bachelor theses: expected score **248.63**
   ([Larsson and Sjöberg 2012](https://www.csc.kth.se/utbildning/kth/kurser/DD143X/dkand12/Group89Michael/report/Larsson+Sjoberg.pdf);
   [Sederblad and Törnebohm 2013](https://www.diva-portal.org/smash/get/diva2:676659/FULLTEXT01.pdf)).
+  The 248.63 comes from a bug in the 2012 authors' code (their Two pairs scorer, `ScoreCard.scorePair` in
+  `ansjob/optimalt-yatzy`, lets a single pair score); under their stated rules the value is **248.4399894**,
+  confirmed by the independent open-source solvers Castux/yahtzee and Laurii1i/Yatzy (see 10.1).
 - **Multiplayer** play (maximize the probability of winning) is harder; nearly optimal play is studied by
   Pawlewicz, "Nearly Optimal Computer Play in Multi-player Yahtzee" (Computers and Games 2010).
 - **Existing code** is small and fragmented: a few Python and C++ Yahtzee solvers on GitHub (single-digit to tens
@@ -68,9 +71,9 @@ The maximum score is 374. **House-rule switches** (defaults in brackets):
 - whether four of a kind counts as two pairs [no];
 - **forced order** ("tvångsyatzy": categories filled top to bottom) [off].
 
-These must be settled against the rule set of the published 248.63 before the first release (open question 10.1).
+Settled in M2 (10.1): the defaults above are the rules of the published solution.
 
-### 2.2 American rules, Yahtzee-compatible (`yahtzee`, the validation variant)
+### 2.2 American rules, Yahtzee-compatible (`american`, the validation variant)
 
 - 13 categories: Ones to Sixes; three and four of a kind (the sum of all dice); full house 25; small straight
   (any four in sequence) 30; large straight 40; Yahtzee 50; chance.
@@ -79,10 +82,14 @@ These must be settled against the rule set of the published 248.63 before the fi
   rule, the upper box of that face must be used if open; otherwise any lower box, with full points for full house
   and the straights.
 - The state gains a Yahtzee-box status (open, 0, or 50).
+- **Ids** (9.3): the variant id is `american`, the Yahtzee category id is `five_of_a_kind` (its display name may
+  say Yahtzee), and the notation field for the box status is `five_of_a_kind 0|50`. No id, table header, export,
+  notation or package name contains "yahtzee".
 - **Joker rule as a switch** (found in M2): the published 254.5896 uses Verhoeff's reading, not the forced
   joker: the joker (full points for full house and the straights) applies when the Yahtzee box and the upper box
-  of the hand's face are both filled, and the hand may be scored in any open box. `yahtzee` uses that rule;
-  `yahtzee+forced-joker`, `yahtzee+no-joker` and `yahtzee+no-bonus` give the alternatives (docs/rules.md).
+  of the hand's face are both filled, and the hand may be scored in any open box. `american` uses that rule;
+  `american+forced-joker`, `american+no-joker` and `american+no-bonus` give the alternatives (docs/rules.md).
+  The printed rules use the forced joker; the two differ by 0.0019 points of expected score.
 
 This variant exists to validate the solver against the best-known published number.
 
@@ -170,20 +177,24 @@ This variant exists to validate the solver against the best-known published numb
 
 ### 5.3 Correctness
 
-- Deterministic results: a fixed summation order, and the same table hash on every platform (published per
-  release).
+- Deterministic results: a fixed summation order, and the same **values hash** (SHA-256 of the value array) on
+  every platform, published per release. The file hash also covers the header, which includes the solver
+  version, so it changes with every release.
 - Tests:
   - scoring tables for every category and house-rule switch;
   - property tests;
   - the brute-force cross-check;
   - cross-language parity (Rust, Python and WASM give identical answers on a golden set);
-  - the published values: **yahtzee 254.5896**, standard deviation 59.6117, median 248; **yatzy-scandinavian
-    248.63**.
+  - the published values: **american 254.5896**, standard deviation 59.6117, median 248; **yatzy-scandinavian
+    248.4399894** (the stated rules); and, as a check, 248.63 reproduced under the scoring of the published code
+    (10.1).
 
 ### 5.4 Table file format
 
 - A header (magic, format version, variant id, a hash of the variant definition, solver version, objective,
   precision, state count), then the value array in a documented state order, then a SHA-256 checksum.
+- Two hashes per table: the values hash (the value array only; identical on every platform) and the file hash
+  (the whole file, header included).
 - Little-endian, memory-mappable.
 - Prebuilt tables are attached to each GitHub release, with their hashes in the README.
 
@@ -240,12 +251,12 @@ covered above:
 | milestone | content | accepted when |
 | --- | --- | --- |
 | M1 | variants, scoring and rules engine (F7), notation (F6) | all scoring tables pass; rules documented |
-| M2 | solver and table (F1), brute-force cross-check (F8) | reduced games match brute force exactly; yahtzee 254.5896; yatzy-scandinavian 248.63 (or a documented rule difference); performance targets measured |
+| M2 | solver and table (F1), brute-force cross-check (F8) | reduced games match brute force exactly; american 254.5896; yatzy-scandinavian 248.4399894, and 248.63 under the published code's scoring; performance targets measured |
 | M3 | queries, batch, simulator (F2-F4) | regret and option values consistent with V; the simulated mean within its interval of the exact mean |
 | M4 | Python bindings and export (F5) | parity with Rust on the golden set; export schema documented and tested |
 | M5 | WASM, npm and the web advisor demo | parity; the demo works offline in a browser |
 | M6 | release: docs, CI, packages, v1.0.0 | a clean install on the three OSs; the README's verify commands reproduce the numbers |
-| M7 (v1.1) | the score distribution and P(score >= T) objective; C ABI | yahtzee standard deviation 59.6117 and median 248 reproduced |
+| M7 (v1.1) | the score distribution and P(score >= T) objective; C ABI | american standard deviation 59.6117 and median 248 reproduced |
 
 ## 9. Decisions
 
@@ -277,20 +288,26 @@ covered above:
    **Resolved in M2:** the stated rules of Larsson and Sjöberg (2012) match the `yatzy-scandinavian` defaults,
    which give 248.4399894 (confirmed independently by the open-source solvers Castux/yahtzee, 248.4394, and
    Laurii1i/Yatzy, about 248.44). Their published code scores a single pair in Two pairs (the second pair
-   counts 0 when absent); with that scoring (`+tp1`) the solver gives 248.6328539, which rounds to 248.63. The
-   house-rule defaults stay as in 2.1. Proposed for the owner: record 248.44 as the Scandinavian validation
-   value in 5.3 and M2, with 248.63 kept as the reproduction of the published code.
+   counts 0 when absent); with that scoring (a verification variant, not a house rule) the solver gives
+   248.6328539, which rounds to 248.63. The house-rule defaults stay as in 2.1. **Decided (owner, after the M2
+   review):** the Scandinavian validation value is 248.4399894; 248.63 is kept as a check reproducing the
+   published code.
 2. Whether Maxi Yatzy (six dice, saved rolls) is feasible exactly, or only approximately.
 3. Multiplayer: an exact win-probability solver is out of scope for v1; the P(score >= T) objective is the
    practical step.
 4. Verhoeff's trivia page also gives an exact fraction (Liese and Kelly, 2017) that evaluates to 254.58937,
    not 254.5896. It matches none of the free, forced or no-joker rules (254.5896095, 254.5877287,
-   253.9702412). Which rules it uses is unknown; it does not affect the validation value.
+   253.9702412). Which rules it uses is unknown; it does not affect the validation value. Recorded, not pursued.
+5. Castux/yahtzee publishes 248.4394 for Scandinavian Yatzy; this solver gives 248.4399894, a gap of 0.0006.
+   Is it a rule difference or rounding or precision in their code? It does not block anything.
 
 ## Changelog
 
 - 2026-09-29: v0.1, initial specification; license MIT; repository private.
 - 2026-09-29: 2.2 records the joker rule as a switch (Verhoeff's reading gives 254.5896); 10.1 resolved (248.63
   comes from the published code's Two pairs scoring; 248.44 under the stated rules); 10.4 added.
+- 2026-09-29: decisions after the M2 review: Scandinavian validation value 248.4399894 (sections 1, 5.3, M2),
+  with 248.63 as a check of the published code; ids `american` and `five_of_a_kind` (2.2); values hash versus
+  file hash (5.3, 5.4); 10.1 decided; 10.5 added.
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
