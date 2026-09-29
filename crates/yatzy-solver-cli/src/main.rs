@@ -27,7 +27,7 @@ enum Prec {
 enum Command {
     /// Solve a variant and write its table.
     Build {
-        /// Variant id, e.g. yatzy-scandinavian or yahtzee.
+        /// Variant id, e.g. yatzy-scandinavian or american.
         #[arg(long, default_value = Variant::SCANDINAVIAN)]
         variant: String,
         #[arg(long, value_enum, default_value = "f32")]
@@ -127,7 +127,7 @@ fn run(cli: Cli) -> Result<bool, String> {
             if !quick {
                 println!("published values:");
                 for p in PUBLISHED {
-                    let v = variant(p.variant)?;
+                    let v = p.variant();
                     let model = TurnModel::new(&v);
                     let t: Vec<f64> = model.solve();
                     let x = t[model.space().index(&State::new())];

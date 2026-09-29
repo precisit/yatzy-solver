@@ -8,8 +8,8 @@
 //! actions:    keep 3 3        keep -        score full_house
 //! ```
 //!
-//! In a variant with a Yahtzee bonus, a state whose Yahtzee box is filled ends with `| yahtzee_box 50` (the box
-//! holds its full points, so further Yahtzees earn the bonus) or `| yahtzee_box 0`.
+//! In a variant with a Yahtzee bonus, a state whose Yahtzee box is filled ends with `| five_of_a_kind 50` (the box
+//! holds its full points, so further Yahtzees earn the bonus) or `| five_of_a_kind 0`.
 //!
 //! Formatting always produces the canonical form; these bytes are fixed across versions. Parsing accepts the
 //! canonical form with any amount of whitespace around tokens and separators, and rejects anything else.
@@ -36,8 +36,8 @@ fn bad<T>(msg: impl Into<String>) -> Result<T, NotationError> {
     Err(NotationError(msg.into()))
 }
 
-fn yahtzee_points(v: &Variant) -> Option<u16> {
-    let y = v.yahtzee_box()?;
+fn all_same_points(v: &Variant) -> Option<u16> {
+    let y = v.all_same_box()?;
     match v.categories()[y].kind {
         CategoryKind::AllSame { points } => Some(points),
         _ => None,
@@ -51,11 +51,11 @@ impl Variant {
             (0..self.num_categories()).filter(|&c| s.is_filled(c)).map(|c| self.categories()[c].id.as_str()).collect();
         let filled = if filled.is_empty() { "-".to_string() } else { filled.join(",") };
         let mut out = format!("upper {} | filled {}", s.upper, filled);
-        if let Some(y) = self.yahtzee_box()
+        if let Some(y) = self.all_same_box()
             && s.is_filled(y)
         {
-            let pts = if s.yahtzee_armed { yahtzee_points(self).unwrap_or(0) } else { 0 };
-            out.push_str(&format!(" | yahtzee_box {pts}"));
+            let pts = if s.bonus_armed { all_same_points(self).unwrap_or(0) } else { 0 };
+            out.push_str(&format!(" | five_of_a_kind {pts}"));
         }
         out
     }
@@ -125,7 +125,7 @@ impl Variant {
         let (upper_f, filled_f, ybox_f) = match fields {
             [u, f] => (u, f, None),
             [u, f, y] => (u, f, Some(y)),
-            _ => return bad("a state is `upper <n> | filled <ids>` with an optional `| yahtzee_box <n>`"),
+            _ => return bad("a state is `upper <n> | filled <ids>` with an optional `| five_of_a_kind <n>`"),
         };
         let upper: u16 = match field(upper_f, "upper")?.as_slice() {
             [n] => n.parse().map_err(|_| NotationError(format!("bad upper value {n:?}")))?,
@@ -147,18 +147,18 @@ impl Variant {
             }
             _ => return bad("filled takes a comma-separated list without spaces, or `-`"),
         }
-        let y_filled = self.yahtzee_box().is_some_and(|y| filled & (1 << y) != 0);
-        let yahtzee_armed = match ybox_f {
-            None if y_filled => return bad("a filled Yahtzee box needs a `yahtzee_box` field"),
+        let y_filled = self.all_same_box().is_some_and(|y| filled & (1 << y) != 0);
+        let bonus_armed = match ybox_f {
+            None if y_filled => return bad("a filled Yahtzee box needs a `five_of_a_kind` field"),
             None => false,
-            Some(_) if !y_filled => return bad("`yahtzee_box` is only given when the Yahtzee box is filled"),
-            Some(f) => match field(f, "yahtzee_box")?.as_slice() {
+            Some(_) if !y_filled => return bad("`five_of_a_kind` is only given when the Yahtzee box is filled"),
+            Some(f) => match field(f, "five_of_a_kind")?.as_slice() {
                 ["0"] => false,
-                [n] if n.parse::<u16>().ok() == yahtzee_points(self) => true,
-                _ => return bad("yahtzee_box is 0 or the box's full points"),
+                [n] if n.parse::<u16>().ok() == all_same_points(self) => true,
+                _ => return bad("five_of_a_kind is 0 or the box's full points"),
             },
         };
-        let s = State { filled, upper, yahtzee_armed };
+        let s = State { filled, upper, bonus_armed };
         self.check_state(&s).map_err(|e| NotationError(e.to_string()))?;
         Ok(s)
     }

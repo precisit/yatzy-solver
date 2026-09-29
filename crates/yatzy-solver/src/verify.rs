@@ -12,13 +12,14 @@ use crate::dice::Dice;
 use crate::rules::State;
 use crate::value::Value;
 use crate::variant::{
-    Category, CategoryKind, FullHouseScoring, JokerRule, OfAKindScoring, UpperBonus, Variant, VariantDef, YahtzeeBonus,
+    AllSameBonus, Category, CategoryKind, FullHouseScoring, JokerRule, OfAKindScoring, UpperBonus, Variant, VariantDef,
     face_mask,
 };
 
-/// A published value to reproduce (SPEC 5.3).
+/// A published or reference value to reproduce (SPEC 5.3).
 #[derive(Clone, Copy, Debug)]
 pub struct PublishedValue {
+    /// A built-in variant id, or [`LS2012_ID`].
     pub variant: &'static str,
     /// The expected final score under optimal play.
     pub expected: f64,
@@ -27,25 +28,28 @@ pub struct PublishedValue {
     pub source: &'static str,
 }
 
-/// The published values the solver must reproduce.
+/// Id of [`larsson_sjoberg_2012`].
+pub const LS2012_ID: &str = "yatzy-scandinavian-ls2012-code";
+
+/// The values the solver must reproduce.
 ///
-/// The published Scandinavian value 248.63 (Larsson and Sjöberg 2012) was computed with code that scores a
-/// single pair in Two pairs; it reproduces under `+tp1`. Under the stated rules the value is 248.4399894, which
-/// two independent open-source solvers confirm (see `docs/rules.md`).
+/// The Scandinavian gate is 248.4399894 under the stated rules, confirmed by two independent open-source
+/// solvers. The published 248.63 (Larsson and Sjöberg 2012) was computed by code that scores a single pair in
+/// Two pairs; it is kept as a check that reproduces that code ([`larsson_sjoberg_2012`]).
 pub const PUBLISHED: &[PublishedValue] = &[
-    PublishedValue { variant: "yahtzee", expected: 254.5896, decimals: 4, source: "Verhoeff 1999; Glenn 2006" },
-    PublishedValue { variant: "yahtzee+no-bonus", expected: 245.87, decimals: 2, source: "Verhoeff; Glenn 2006" },
+    PublishedValue { variant: "american", expected: 254.5896, decimals: 4, source: "Verhoeff 1999; Glenn 2006" },
+    PublishedValue { variant: "american+no-bonus", expected: 245.87, decimals: 2, source: "Verhoeff; Glenn 2006" },
     PublishedValue {
-        variant: "yatzy-scandinavian+tp1",
+        variant: "yatzy-scandinavian",
+        expected: 248.4399894,
+        decimals: 7,
+        source: "stated rules; Castux/yahtzee 248.4394, Laurii1i/Yatzy 248.44",
+    },
+    PublishedValue {
+        variant: LS2012_ID,
         expected: 248.63,
         decimals: 2,
         source: "Larsson and Sjöberg 2012, as computed by their code",
-    },
-    PublishedValue {
-        variant: "yatzy-scandinavian",
-        expected: 248.44,
-        decimals: 2,
-        source: "Castux/yahtzee 248.4394; Laurii1i/Yatzy 248.44",
     },
 ];
 
@@ -55,6 +59,29 @@ impl PublishedValue {
         let scale = 10f64.powi(self.decimals as i32);
         (value * scale).round() == (self.expected * scale).round()
     }
+
+    /// The variant this value belongs to.
+    pub fn variant(&self) -> Variant {
+        if self.variant == LS2012_ID {
+            larsson_sjoberg_2012()
+        } else {
+            Variant::by_id(self.variant).expect("published values name built-in variants")
+        }
+    }
+}
+
+/// Scandinavian Yatzy as scored by the code behind the published 248.63 (Larsson and Sjöberg 2012,
+/// `ansjob/optimalt-yatzy`, `ScoreCard.scorePair`): Two pairs adds twice the second pair's face, or 0 when there
+/// is no second pair, so a single pair scores in Two pairs. This reproduces a bug, not a rule anyone plays by.
+pub fn larsson_sjoberg_2012() -> Variant {
+    let mut def = Variant::scandinavian().def().clone();
+    def.id = LS2012_ID.into();
+    for c in &mut def.categories {
+        if let CategoryKind::TwoPairs { single_pair_counts, .. } = &mut c.kind {
+            *single_pair_counts = true;
+        }
+    }
+    Variant::new(def).expect("valid variant")
 }
 
 /// The brute-force reference solver.
@@ -155,8 +182,9 @@ fn upper(id: &str, face: u8) -> Category {
     cat(id, CategoryKind::Upper { face })
 }
 
-/// Reduced games for the brute-force cross-check. Together they exercise every category kind, both upper
-/// bonus paths, every joker rule, forced order and both house-rule switches, with 2 to 4 dice.
+/// Reduced games for the brute-force cross-check. Together they exercise every category kind, the upper bonus,
+/// every joker rule, forced order, the two-pairs switches, one pair with two pairs to choose from, the full
+/// house with and without five of a kind, and both straights in one game, with 2 to 5 dice.
 pub fn reduced_variants() -> Vec<Variant> {
     use CategoryKind::*;
     let def = |id: &str, dice: u8, rolls: u8, categories: Vec<Category>| VariantDef {
@@ -166,7 +194,7 @@ pub fn reduced_variants() -> Vec<Variant> {
         rolls,
         categories,
         upper_bonus: None,
-        yahtzee_bonus: None,
+        all_same_bonus: None,
         forced_order: false,
     };
     let mut out = Vec::new();
@@ -207,15 +235,16 @@ pub fn reduced_variants() -> Vec<Variant> {
     d.upper_bonus = Some(UpperBonus { threshold: 20, points: 25 });
     out.push(d);
 
-    // Four dice: two pairs (with four of a kind or a single pair counting), four of a kind, American-style
-    // straights.
-    for (suffix, four, single) in [("tp4", true, false), ("tp1", false, true)] {
+    // Four dice: one pair (choosing the higher of two pairs), two pairs (with four of a kind or a single pair
+    // counting), four of a kind, American-style straights.
+    for (suffix, four, single) in [("tp4", true, false), ("single", false, true)] {
         out.push(def(
             &format!("reduced-pairs+{suffix}"),
             4,
             2,
             vec![
                 upper("twos", 2),
+                cat("one_pair", OfAKind { n: 2, scoring: OfAKindScoring::Matched }),
                 cat("two_pairs", TwoPairs { four_of_a_kind_counts: four, single_pair_counts: single }),
                 cat("four_of_a_kind", OfAKind { n: 4, scoring: OfAKindScoring::AllDice }),
                 cat(
@@ -228,6 +257,18 @@ pub fn reduced_variants() -> Vec<Variant> {
             ],
         ));
     }
+
+    // Five dice: the Scandinavian full house (five of a kind does not count) and both straights.
+    out.push(def(
+        "reduced-five-dice",
+        5,
+        2,
+        vec![
+            cat("small_straight", Straight { patterns: vec![face_mask(&[1, 2, 3, 4, 5])], points: 15 }),
+            cat("large_straight", Straight { patterns: vec![face_mask(&[2, 3, 4, 5, 6])], points: 20 }),
+            cat("full_house", FullHouse { scoring: FullHouseScoring::AllDice, five_of_a_kind_counts: false }),
+        ],
+    ));
 
     // Two dice, American rules: Yahtzee bonus with every joker rule.
     for (suffix, joker) in [("free", JokerRule::Free), ("forced", JokerRule::Forced), ("none", JokerRule::None)] {
@@ -242,11 +283,11 @@ pub fn reduced_variants() -> Vec<Variant> {
                 cat("three_of_a_kind", OfAKind { n: 2, scoring: OfAKindScoring::AllDice }),
                 cat("full_house", FullHouse { scoring: FullHouseScoring::Fixed(25), five_of_a_kind_counts: false }),
                 cat("straight", Straight { patterns: vec![face_mask(&[5, 6])], points: 30 }),
-                cat("yahtzee", AllSame { points: 50 }),
+                cat("five_of_a_kind", AllSame { points: 50 }),
             ],
         );
         d.upper_bonus = Some(UpperBonus { threshold: 14, points: 35 });
-        d.yahtzee_bonus = Some(YahtzeeBonus { points: 100, joker });
+        d.all_same_bonus = Some(AllSameBonus { points: 100, joker });
         out.push(d);
     }
 

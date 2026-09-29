@@ -5,25 +5,25 @@
 
 use yatzy_solver::table::hex;
 use yatzy_solver::verify::PUBLISHED;
-use yatzy_solver::{Precision, State, Table, TurnModel, Variant};
+use yatzy_solver::{Precision, State, Table, TurnModel};
 
 const PINNED: &[(&str, f64)] = &[
-    ("yahtzee", 254.5896094820),
-    ("yahtzee+no-bonus", 245.8707745141),
-    ("yatzy-scandinavian+tp1", 248.6328539121),
+    ("american", 254.5896094820),
+    ("american+no-bonus", 245.8707745141),
+    ("yatzy-scandinavian-ls2012-code", 248.6328539121),
     ("yatzy-scandinavian", 248.4399893779),
 ];
 
 /// SHA-256 of the f32 value arrays: the same on every platform (SPEC 5.3).
 const VALUES_HASHES: &[(&str, &str)] = &[
     ("yatzy-scandinavian", "3a5bb59a68632c6236028a6753e01ee39c92c6294d669ad55ec26290e651cf7d"),
-    ("yahtzee", "588e16790260e43cfce2222a96e517cdc15091600672234a1da92639abde7c9b"),
+    ("american", "588e16790260e43cfce2222a96e517cdc15091600672234a1da92639abde7c9b"),
 ];
 
 #[test]
 fn published_values_reproduce() {
     for p in PUBLISHED {
-        let v = Variant::by_id(p.variant).unwrap();
+        let v = p.variant();
         let m = TurnModel::new(&v);
         let t: Vec<f64> = m.solve();
         let x = t[m.space().index(&State::new())];

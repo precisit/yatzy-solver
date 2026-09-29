@@ -39,7 +39,7 @@ impl StateSpace {
         StateSpace {
             categories: v.num_categories(),
             upper_values: usize::from(v.upper_cap()) + 1,
-            armed_values: if v.yahtzee_bonus().is_some() { 2 } else { 1 },
+            armed_values: if v.all_same_bonus().is_some() { 2 } else { 1 },
         }
     }
 
@@ -56,7 +56,7 @@ impl StateSpace {
     #[inline]
     pub fn index(&self, s: &State) -> usize {
         let up = usize::from(s.upper).min(self.upper_values - 1);
-        let armed = usize::from(s.yahtzee_armed && self.armed_values == 2);
+        let armed = usize::from(s.bonus_armed && self.armed_values == 2);
         ((s.filled as usize * self.upper_values) + up) * self.armed_values + armed
     }
 
@@ -67,7 +67,7 @@ impl StateSpace {
         State {
             filled: (rest / self.upper_values) as u32,
             upper: (rest % self.upper_values) as u16,
-            yahtzee_armed: armed == 1,
+            bonus_armed: armed == 1,
         }
     }
 }
@@ -184,8 +184,8 @@ impl TurnModel {
             }
             next.upper = (s.upper + p).min(v.upper_cap());
         }
-        if Some(c) == v.yahtzee_box() {
-            next.yahtzee_armed = p > 0;
+        if Some(c) == v.all_same_box() {
+            next.bonus_armed = p > 0;
         }
         let mut val = table[self.space.index(&next)].clone();
         val.add_assign(&T::from_points(gain));
@@ -213,7 +213,7 @@ impl TurnModel {
             first = false;
         }
         // Extra Yahtzees (bonus, joker): take the rules engine's word for legality and points.
-        if v.yahtzee_box().is_some_and(|y| s.is_filled(y)) {
+        if v.all_same_box().is_some_and(|y| s.is_filled(y)) {
             for (r, hand) in self.hands().iter().enumerate() {
                 if hand.all_same() {
                     e[r] = self.score_value_by_rules(s, hand, table);
@@ -286,7 +286,7 @@ impl TurnModel {
             out.resize(sp.upper_values * sp.armed_values, T::zero());
             return out;
         }
-        let y_filled = self.variant.yahtzee_box().is_some_and(|y| mask & (1 << y) != 0);
+        let y_filled = self.variant.all_same_box().is_some_and(|y| mask & (1 << y) != 0);
         for up in 0..sp.upper_values {
             for armed in 0..sp.armed_values {
                 if armed == 1 && !y_filled {
@@ -295,7 +295,7 @@ impl TurnModel {
                     out.push(v0);
                     continue;
                 }
-                let s = State { filled: mask, upper: up as u16, yahtzee_armed: armed == 1 };
+                let s = State { filled: mask, upper: up as u16, bonus_armed: armed == 1 };
                 out.push(self.state_value(&s, table, scr));
             }
         }

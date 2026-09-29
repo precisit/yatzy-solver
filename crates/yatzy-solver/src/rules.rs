@@ -22,7 +22,7 @@ pub struct State {
     pub upper: u16,
     /// The Yahtzee box is filled with its full points, so further all-same hands earn the Yahtzee bonus. Always
     /// false in variants without a Yahtzee bonus.
-    pub yahtzee_armed: bool,
+    pub bonus_armed: bool,
 }
 
 /// A decision point within a turn.
@@ -53,13 +53,13 @@ pub struct Scored {
     /// Upper-section bonus earned by this score (the upper total reached the threshold).
     pub upper_bonus: u16,
     /// Yahtzee bonus earned by this score.
-    pub yahtzee_bonus: u16,
+    pub all_same_bonus: u16,
 }
 
 impl Scored {
     /// All points earned.
     pub fn total(&self) -> u16 {
-        self.points + self.upper_bonus + self.yahtzee_bonus
+        self.points + self.upper_bonus + self.all_same_bonus
     }
 }
 
@@ -129,7 +129,7 @@ impl Variant {
         if s.filled & self.upper_mask() == 0 && s.upper != 0 {
             return Err(RulesError::BadState("upper total without filled upper categories".into()));
         }
-        if s.yahtzee_armed && !self.yahtzee_box().is_some_and(|y| s.is_filled(y)) {
+        if s.bonus_armed && !self.all_same_box().is_some_and(|y| s.is_filled(y)) {
             return Err(RulesError::BadState("Yahtzee bonus armed but the Yahtzee box is not filled".into()));
         }
         Ok(())
@@ -142,13 +142,13 @@ impl Variant {
 
     /// True when `dice` is an extra Yahtzee: all dice the same while the Yahtzee box is filled. It earns the
     /// Yahtzee bonus when the box holds its full points.
-    pub fn extra_yahtzee(&self, s: &State, dice: &Dice) -> bool {
-        self.yahtzee_box().is_some_and(|y| s.is_filled(y)) && dice.all_same()
+    pub fn extra_five_of_a_kind(&self, s: &State, dice: &Dice) -> bool {
+        self.all_same_box().is_some_and(|y| s.is_filled(y)) && dice.all_same()
     }
 
     /// True when `dice` scores as a joker in state `s` (full points for full house and the straights).
     pub fn joker_applies(&self, s: &State, dice: &Dice) -> bool {
-        if !self.extra_yahtzee(s, dice) {
+        if !self.extra_five_of_a_kind(s, dice) {
             return false;
         }
         match self.joker_rule() {
@@ -170,7 +170,7 @@ impl Variant {
         if self.forced_order() && c != open.trailing_zeros() as usize {
             return Err(RulesError::CategoryNotAllowed(c));
         }
-        if self.joker_rule() == JokerRule::Forced && self.extra_yahtzee(s, dice) {
+        if self.joker_rule() == JokerRule::Forced && self.extra_five_of_a_kind(s, dice) {
             let face = dice.faces()[0];
             let own_upper_open = self.upper_of_face(face).filter(|&u| !s.is_filled(u));
             let lower_open = open & !self.upper_mask() != 0;
@@ -207,11 +207,11 @@ impl Variant {
             }
             _ => 0,
         };
-        let yahtzee_bonus = match self.yahtzee_bonus() {
-            Some(b) if s.yahtzee_armed && self.extra_yahtzee(s, dice) => b.points,
+        let all_same_bonus = match self.all_same_bonus() {
+            Some(b) if s.bonus_armed && self.extra_five_of_a_kind(s, dice) => b.points,
             _ => 0,
         };
-        Ok(Scored { category: c, points, upper_bonus, yahtzee_bonus })
+        Ok(Scored { category: c, points, upper_bonus, all_same_bonus })
     }
 
     /// Every legal category for `dice`, in score-card order, with the points each earns.
@@ -231,8 +231,8 @@ impl Variant {
         if self.upper_mask() & (1 << c) != 0 {
             next.upper += scored.points;
         }
-        if Some(c) == self.yahtzee_box() {
-            next.yahtzee_armed = self.yahtzee_bonus().is_some() && scored.points > 0;
+        if Some(c) == self.all_same_box() {
+            next.bonus_armed = self.all_same_bonus().is_some() && scored.points > 0;
         }
         Ok((next, scored))
     }
@@ -292,7 +292,7 @@ pub struct Game {
     state: State,
     card: [u16; MAX_CATEGORIES],
     upper_bonus: u16,
-    yahtzee_bonus: u16,
+    all_same_bonus: u16,
 }
 
 impl Game {
@@ -317,13 +317,13 @@ impl Game {
     }
 
     /// Yahtzee bonus points earned so far.
-    pub fn yahtzee_bonus(&self) -> u16 {
-        self.yahtzee_bonus
+    pub fn all_same_bonus(&self) -> u16 {
+        self.all_same_bonus
     }
 
     /// The score so far, bonuses included. This is the final score once the game is over.
     pub fn total(&self) -> u16 {
-        self.card.iter().sum::<u16>() + self.upper_bonus + self.yahtzee_bonus
+        self.card.iter().sum::<u16>() + self.upper_bonus + self.all_same_bonus
     }
 
     /// Scores `dice` in category `c`.
@@ -332,7 +332,7 @@ impl Game {
         self.state = next;
         self.card[c] = scored.points;
         self.upper_bonus += scored.upper_bonus;
-        self.yahtzee_bonus += scored.yahtzee_bonus;
+        self.all_same_bonus += scored.all_same_bonus;
         Ok(scored)
     }
 }

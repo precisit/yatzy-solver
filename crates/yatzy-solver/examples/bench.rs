@@ -40,8 +40,8 @@ fn main() {
                 }
             };
             let upper = if filled & v.upper_mask() != 0 { rng.below(64) as u16 } else { 0 };
-            let yfilled = v.yahtzee_box().is_some_and(|y| filled & (1 << y) != 0);
-            let state = State { filled, upper, yahtzee_armed: yfilled && rng.below(2) == 1 };
+            let yfilled = v.all_same_box().is_some_and(|y| filled & (1 << y) != 0);
+            let state = State { filled, upper, bonus_armed: yfilled && rng.below(2) == 1 };
             Situation { state, dice: hands[rng.below(hands.len() as u64) as usize], rolls_left: rng.below(3) as u8 }
         })
         .collect();
