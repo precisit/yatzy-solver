@@ -164,6 +164,61 @@ impl Solver {
     }
 }
 
+/// Batch option values in the flat, padded layout (for numpy and typed arrays): row `i` holds situation `i`'s
+/// options in legal-action order, as action codes ([`crate::codes`]) and values, padded to `width` =
+/// [`Variant::max_options`] with code -1 and value NaN.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlatOptions {
+    pub rows: usize,
+    pub width: usize,
+    /// `rows x width` action codes, -1 for padding.
+    pub codes: Vec<i16>,
+    /// `rows x width` values, NaN for padding.
+    pub values: Vec<f64>,
+    /// The number of options in each row.
+    pub counts: Vec<u16>,
+}
+
+impl FlatOptions {
+    /// Scatters the rows into the dense layout: `rows x num_codes` values indexed by action code, NaN for
+    /// actions that are not legal.
+    pub fn to_dense(&self, num_codes: usize) -> Vec<f64> {
+        let mut out = vec![f64::NAN; self.rows * num_codes];
+        for r in 0..self.rows {
+            for j in 0..usize::from(self.counts[r]) {
+                let code = self.codes[r * self.width + j] as usize;
+                out[r * num_codes + code] = self.values[r * self.width + j];
+            }
+        }
+        out
+    }
+}
+
+impl Solver {
+    /// Batch option values in the flat layout. Fails on the first situation that cannot be queried, with its
+    /// index.
+    pub fn option_values_flat(&self, sits: &[Situation]) -> Result<FlatOptions, (usize, RulesError)> {
+        let v = self.variant();
+        let width = v.max_options();
+        let mut flat = FlatOptions {
+            rows: sits.len(),
+            width,
+            codes: vec![-1; sits.len() * width],
+            values: vec![f64::NAN; sits.len() * width],
+            counts: vec![0; sits.len()],
+        };
+        for (r, res) in self.option_values_batch(sits).into_iter().enumerate() {
+            let opts = res.map_err(|e| (r, e))?;
+            flat.counts[r] = opts.len() as u16;
+            for (j, o) in opts.iter().enumerate() {
+                flat.codes[r * width + j] = v.action_code(&o.action).expect("legal actions have codes") as i16;
+                flat.values[r * width + j] = o.value;
+            }
+        }
+        Ok(flat)
+    }
+}
+
 fn best_value(all: &[OptionValue]) -> f64 {
     all.iter().map(|o| o.value).fold(f64::NEG_INFINITY, f64::max)
 }

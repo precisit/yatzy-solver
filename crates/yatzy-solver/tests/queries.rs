@@ -148,6 +148,28 @@ fn batch_equals_single() {
     for (s, b) in sits.iter().zip(&batch) {
         assert_eq!(&solver.option_values(s), b);
     }
+    // The flat layout holds the same values, and the dense layout scatters them by code.
+    let ok: Vec<Situation> = sits[..500].to_vec();
+    let flat = solver.option_values_flat(&ok).unwrap();
+    let v = solver.variant();
+    let dense = flat.to_dense(v.num_action_codes());
+    assert_eq!(flat.width, v.num_categories() + 31);
+    for (r, b) in batch[..500].iter().enumerate() {
+        let opts = b.as_ref().unwrap();
+        assert_eq!(usize::from(flat.counts[r]), opts.len());
+        for (j, o) in opts.iter().enumerate() {
+            let code = v.action_code(&o.action).unwrap();
+            assert_eq!(flat.codes[r * flat.width + j], code as i16);
+            assert_eq!(flat.values[r * flat.width + j], o.value);
+            assert_eq!(dense[r * v.num_action_codes() + usize::from(code)], o.value);
+        }
+        assert!(flat.codes[r * flat.width + opts.len()..(r + 1) * flat.width].iter().all(|&c| c == -1));
+        assert_eq!(
+            dense[r * v.num_action_codes()..(r + 1) * v.num_action_codes()].iter().filter(|x| !x.is_nan()).count(),
+            opts.len()
+        );
+    }
+    assert_eq!(solver.option_values_flat(&sits).unwrap_err().0, 500);
     let states: Vec<State> = sits.iter().map(|s| s.state).collect();
     let vals = solver.state_values(&states);
     assert!(states.iter().zip(&vals).all(|(s, &x)| solver.state_value(s) == x));

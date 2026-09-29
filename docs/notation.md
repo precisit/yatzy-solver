@@ -57,3 +57,21 @@ single spaces, no leading or trailing whitespace. The parser also accepts other 
 tokens and around `|`, but rejects everything else: fields out of order, unsorted dice, categories out of order
 or repeated, unknown categories, dice counts that do not match the variant, and inconsistent states (for
 example an upper total with no upper box filled).
+
+## Action codes
+
+Batch arrays and learners with a fixed output layout identify actions by integer codes. The code space is fixed
+per variant and is part of this contract:
+
+- categories are `0` to `C - 1`, in score-card order (`C` = 15 for Scandinavian Yatzy, 13 for American rules);
+- keeps are `C + k`, where `k` indexes the multisets of 0 to 4 dice (keeping all five is never an action) by
+  size and then lexicographically: `keep -` is `C`, `keep 1` to `keep 6` are `C + 1` to `C + 6`, `keep 1 1` is
+  `C + 7`, and `keep 6 6 6 6` is `C + 209`.
+
+There are `C + 210` codes (225 for Scandinavian Yatzy, 223 for American rules). One situation has at most
+`C + 31` legal actions (every category, and the 31 proper sub-multisets of five different dice).
+
+**Flat layout** (`Solver::option_values_flat`, and the numpy batch functions): per situation, the codes and
+values of its options in legal-action order, padded to width `C + 31` with code `-1` and value NaN, plus the
+number of options. **Dense layout** (`FlatOptions::to_dense`): per situation, a value for each of the `C + 210`
+codes, NaN where the action is not legal.

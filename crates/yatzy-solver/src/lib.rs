@@ -23,6 +23,7 @@
 //! assert_eq!(v.score(full_house, &dice), 19);
 //! ```
 
+pub mod codes;
 pub mod dice;
 pub mod notation;
 pub mod query;
