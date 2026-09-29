@@ -4,7 +4,7 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use yatzy_solver::dice::all_multisets;
-use yatzy_solver::{Precision, Situation, State, Table, TurnModel, Variant};
+use yatzy_solver::{Precision, Situation, Solver, State, Table, TurnModel, Variant};
 
 /// A small deterministic generator (xorshift), so runs are repeatable without a dependency.
 struct Rng(u64);
@@ -75,4 +75,17 @@ fn main() {
     }
     let per = t.elapsed().as_secs_f64() / n as f64;
     println!("option_values mixed    {:10.1} us   = {:.0} situations/s on one core", per * 1e6, 1.0 / per);
+
+    // Batch labelling through the public API (all threads the rayon pool allows).
+    let solver = Solver::from_table(&table);
+    let big: Vec<Situation> = sits.iter().cycle().take(200_000).copied().collect();
+    let t = Instant::now();
+    let labelled = solver.option_values_batch(&big);
+    let secs = t.elapsed().as_secs_f64();
+    let threads = std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "all".into());
+    println!(
+        "batch ({threads} threads)    {:10.0} situations/s   ({} situations)",
+        big.len() as f64 / secs,
+        labelled.len()
+    );
 }
