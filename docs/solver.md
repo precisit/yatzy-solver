@@ -27,26 +27,35 @@ The solver maximizes the expected final score, bonuses included, by backward ind
 
 All arithmetic is in f64 with a fixed summation order (faces 1 to 6, hands and keeps in a fixed order);
 parallelism is only across independent states. The table is bit-identical whatever the number of threads, and
-should be across platforms (IEEE 754, no fused multiply-add). The `values hash` printed by
-`yatzy-solver build` is the SHA-256 of the value array and is the number to compare across machines.
+across platforms (IEEE 754, no fused multiply-add); CI checks the pinned hashes below on Linux, macOS and
+Windows. Two hashes are printed by `yatzy-solver build`:
+
+- the **values hash**, the SHA-256 of the value array: identical on every platform, and published per release;
+- the **file hash**, the SHA-256 trailer of the file: it covers the header too, which includes the solver
+  version, so it changes with every release even when the values do not.
 
 | variant | precision | values hash (SHA-256) |
 | --- | --- | --- |
 | `yatzy-scandinavian` | f32 | `3a5bb59a68632c6236028a6753e01ee39c92c6294d669ad55ec26290e651cf7d` |
-| `yahtzee` | f32 | `588e16790260e43cfce2222a96e517cdc15091600672234a1da92639abde7c9b` |
+| `american` | f32 | `588e16790260e43cfce2222a96e517cdc15091600672234a1da92639abde7c9b` |
 
 ## Verification
 
 `yatzy-solver verify` runs:
 
 - **the brute-force cross-check**: a separate expectimax solver that enumerates every ordered outcome of every
-  roll and every keep by dice position, using only the rules engine, run in exact rational arithmetic on
-  reduced games (2 to 4 dice, 4 to 7 categories). The fast solver, also run in exact rational arithmetic, must
+  roll and every keep by dice position, using only the rules engine, run in exact rational arithmetic on nine
+  reduced games (2 to 5 dice, 3 to 7 categories). The fast solver, also run in exact rational arithmetic, must
   agree exactly on every reachable state. The reduced games cover every category kind, the upper bonus, all
-  three joker rules, forced order and the two-pairs switches;
-- **the published values**: American rules 254.5896 (Verhoeff, Glenn), American rules without bonus and joker
-  245.87, the published Scandinavian 248.63 under the scoring it was computed with (`+tp1`), and the
-  Scandinavian value under the stated rules, 248.44 (see [rules](rules.md)).
+  three joker rules, forced order, both two-pairs switches, one pair with two pairs to choose from, the full
+  house with and without five of a kind, and both straights in one game;
+- **the published and reference values**: American rules 254.5896 (Verhoeff, Glenn), American rules without
+  bonus and joker 245.87, Scandinavian Yatzy 248.4399894 under the stated rules (the validation value), and the
+  published Scandinavian 248.63 under the scoring code it was computed with (see [rules](rules.md)).
+
+The brute force checks the solver, not the scoring rules: both use the same rules engine. The rules rest on
+the table-driven scoring tests (with an independent reference scorer over all 252 hands) and on the published
+values.
 
 The test suite adds invariant checks on the full tables: reroll probabilities sum to 1, values are bounded by
 the best possible remaining score, V is monotone in the upper total below the threshold and in the open
