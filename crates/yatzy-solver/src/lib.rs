@@ -6,6 +6,9 @@
 //! - [`variant`]: rules as data. [`Variant::scandinavian`] and [`Variant::american`] are built in.
 //! - [`rules`]: the rules engine: legal actions, applying them, scoring and the final score.
 //! - [`notation`]: the canonical text form of states, situations and actions.
+//! - [`solver`]: the exact solver (backward induction) and the within-turn values derived from its table.
+//! - [`table`]: the table file format.
+//! - [`verify`]: the brute-force reference solver, reduced games and published values (feature `verify`).
 //!
 //! ```
 //! use yatzy_solver::{Dice, State, Variant};
@@ -21,9 +24,16 @@
 pub mod dice;
 pub mod notation;
 pub mod rules;
+pub mod solver;
+pub mod table;
+pub mod value;
 pub mod variant;
+#[cfg(feature = "verify")]
+pub mod verify;
 
 pub use dice::Dice;
 pub use notation::NotationError;
 pub use rules::{Action, Game, RulesError, Scored, Situation, State};
+pub use solver::{StateSpace, TurnModel};
+pub use table::{Precision, Table};
 pub use variant::{HouseRules, JokerRule, Variant, VariantDef};
