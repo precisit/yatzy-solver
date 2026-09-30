@@ -39,6 +39,8 @@ cargo run --release -p yatzy-solver-cli -- verify
 - [Solver](docs/solver.md): the method, verification, table format and performance.
 - [Queries and simulation](docs/queries.md): option values, best options, regret, batch queries, the seeded
   simulator and its generator.
+- [Export](docs/export.md): sampled situations with every option's value, JSON Lines or Parquet, and the schema.
+- [Python](docs/python.md): the `yatzy_solver` package.
 
 ## Command line
 
@@ -46,6 +48,7 @@ cargo run --release -p yatzy-solver-cli -- verify
 yatzy-solver build --variant yatzy-scandinavian          # writes tables/yatzy-scandinavian.f32.yzt
 yatzy-solver query "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -"   # every option, its value and regret
 yatzy-solver simulate --variant american --games 1000000 --seed 2026
+yatzy-solver export --source perturbed --perturb 0.2 --rows 1000000 --format parquet --out rows.parquet
 yatzy-solver verify
 ```
 

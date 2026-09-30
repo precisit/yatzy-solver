@@ -22,3 +22,9 @@ node_modules/
 
 # Internal agent discussion (not part of the repository)
 DISCOURSE.md
+
+# Python binding build artifacts
+/bindings/python/.venv/
+/bindings/python/python/yatzy_solver/*.so
+/bindings/python/python/yatzy_solver/*.pyd
+.pytest_cache/

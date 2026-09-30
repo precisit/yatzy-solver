@@ -27,3 +27,24 @@ jobs:
       - run: cargo test --doc --all-features
       # The library alone, as the Python and WASM bindings will build it.
       - run: cargo build -p yatzy-solver --no-default-features
+
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: cargo clippy -p yatzy-solver-python -- -D warnings
+      - run: pip install maturin numpy pytest pyarrow
+      - run: maturin build --release -m bindings/python/pyproject.toml -o dist
+      - run: pip install --no-index --find-links dist yatzy-solver
+      - run: pytest -q bindings/python/tests

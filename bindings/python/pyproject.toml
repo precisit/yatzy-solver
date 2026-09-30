@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "yatzy-solver"
+description = "Exact solver, rules engine and data export for Scandinavian Yatzy and American rules (Yahtzee-compatible)"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+dynamic = ["version"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment :: Board Games",
+]
+
+[project.urls]
+Repository = "https://github.com/precisit/yatzy-solver"
+
+[tool.maturin]
+python-source = "python"
+module-name = "yatzy_solver._yatzy_solver"
+features = ["pyo3/extension-module"]
