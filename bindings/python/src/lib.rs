@@ -480,6 +480,7 @@ impl PySolver {
     /// Exports sampled situations with every option's value to a file (docs/export.md). `source` is
     /// `"optimal"`, `"perturbed"` or `"uniform"`; `format` is `"jsonl"` or `"parquet"`. Returns the row count.
     #[pyo3(signature = (path, rows, source = "optimal", seed = 0, format = "jsonl", perturb = 0.1))]
+    #[allow(clippy::too_many_arguments)] // Python keyword arguments, not a Rust API.
     fn export(
         &self,
         py: Python<'_>,
