@@ -193,8 +193,10 @@ jobs:
 
       - name: Rust crate - build a consumer against the packaged crate
         run: |
-          mkdir -p cratecheck/vendor && cd cratecheck
-          tar -xzf ../artifacts/crates/yatzy-solver-[0-9]*.crate -C vendor
+          # Outside the checkout, so cargo does not take it for a member of this repository's workspace.
+          crates="$PWD/artifacts/crates"
+          mkdir -p "$RUNNER_TEMP/cratecheck/vendor" && cd "$RUNNER_TEMP/cratecheck"
+          tar -xzf "$crates"/yatzy-solver-[0-9]*.crate -C vendor
           crate=$(ls vendor)
           cargo init --name cratecheck --vcs none -q
           cargo add --path "vendor/$crate" -q
