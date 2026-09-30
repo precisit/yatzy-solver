@@ -303,6 +303,18 @@ covered above:
    filing for "YATZY" exists (serial 86454511, status not verified). This is a register check, not legal advice:
    before a commercial app is named, have an IP lawyer confirm, including Norway, Denmark, Finland and the US.
 
+   **Settled (owner, 2026-09-30):** the names are `yatzy-solver` (crate, PyPI, npm) and `yatzy-solver-cli`
+   (crate). The Nordic search on 2026-09-30, through TMview, of the Danish, Finnish, Icelandic, Norwegian and
+   Swedish registers found:
+   - one live plain "YATZY" mark, Danish (Danske Licens Spil A/S, 2008), in classes 16, 28 and 41, not software
+     (classes 9 and 42);
+   - the Norwegian (Hasbro) and Finnish plain marks lapsed;
+   - only compound marks in Sweden.
+
+   The use here is descriptive (the name of the game a free library solves, with no logos or game assets), and
+   the README says the project is not affiliated with any trademark holder. The clearance covers this library
+   and its demo only; a future product needs its own name review.
+
 ## 10. Open questions
 
 1. The exact rules behind the published 248.63: full house with five of a kind, two pairs from four of a kind,
@@ -343,3 +355,4 @@ covered above:
   sampler (F5), the added export fields (5.5), and batch speed measured on distinct situations (5.2).
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
+- 2026-09-30: 9.3 settled: the names and the Nordic trademark search (owner decision).
