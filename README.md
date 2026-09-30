@@ -41,6 +41,7 @@ cargo run --release -p yatzy-solver-cli -- verify
   simulator and its generator.
 - [Export](docs/export.md): sampled situations with every option's value, JSON Lines or Parquet, and the schema.
 - [Python](docs/python.md): the `yatzy_solver` package.
+- [WebAssembly and the web advisor](docs/wasm.md): the npm package, table loading, and the offline advisor.
 
 ## Command line
 
