@@ -64,6 +64,10 @@ American rules, 71 s instead of 11 s for Scandinavian Yatzy. Keeping the per-sta
 the native build:** it exists for the WebAssembly engines, and the comment on `TurnModel::state_value` says so. Natively it costs about 4% on one core (10.4 s
 to 10.8 s); the table hashes are unchanged.
 
+The same measurements on the release check (a Mac mini, Apple M5 Pro, load average below 3, 2026-10-01, Node
+26.7): solve 10.7 s (Scandinavian) and 4.95 s (American), `Solver.fromTable` 0.017 s and 0.011 s, option values
+19 µs, and the golden set bit for bit.
+
 ## The advisor
 
 `demo/` is a static page (no framework, no bundler), in Swedish and English:
@@ -89,3 +93,15 @@ Build it with `node demo/build.mjs` (after the WASM package and the release CLI)
 the tables and their manifest. Verified in Chrome: first load from the network, reload from the cache, a
 reload with the server stopped (offline), both languages, keeps and scoring, and the fallback solve for a
 variant whose table was not cached.
+
+Automated check of the same steps with Playwright (2026-10-01, Mac mini, Apple M5 Pro), in headless Google Chrome
+154 and in Playwright's WebKit 26.6 (Safari's engine; the owner does the real Safari pass by hand):
+
+| step | Chrome 154 | WebKit 26.6 |
+| --- | --- | --- |
+| first load (table downloaded, hash checked, cached) | 0.23 s | 0.15 s |
+| reload (service worker controls the page, table from cache) | ok | ok |
+| offline (server stopped, reload) | ok | ok |
+| Swedish, a keep (rerolls 2 to 1), a score (new turn) | ok | ok |
+| fallback: American rules, table not cached, solved in the worker | 4.7 s | 5.3 s |
+| page errors | none | none |

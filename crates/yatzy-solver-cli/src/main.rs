@@ -1,5 +1,6 @@
 //! `yatzy-solver build | query | simulate | export | verify`.
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
@@ -110,6 +111,9 @@ enum Command {
         /// Skip solving the full variants.
         #[arg(long)]
         quick: bool,
+        /// Also check a golden set (golden/parity.jsonl): every option value, bit for bit.
+        #[arg(long)]
+        golden: Option<PathBuf>,
     },
 }
 
@@ -169,12 +173,18 @@ fn run(cli: Cli) -> Result<bool, String> {
             let best: Vec<Action> =
                 solver.best_options(&sit).map_err(|e| e.to_string())?.iter().map(|o| o.action).collect();
             options.sort_by(|a, b| b.value.total_cmp(&a.value));
-            println!("{}", v.format_situation(&sit));
-            println!("{:>12} {:>10}  option", "value", "regret");
+            // Stop quietly when the reader closes the pipe (for example `| head`).
+            let mut out = std::io::stdout().lock();
+            let mut lines = vec![v.format_situation(&sit), format!("{:>12} {:>10}  option", "value", "regret")];
             for o in options {
                 let regret = solver.regret(&sit, &o.action).map_err(|e| e.to_string())?;
                 let mark = if best.contains(&o.action) { "  (best)" } else { "" };
-                println!("{:>12.6} {:>10.6}  {}{mark}", o.value, regret, v.format_action(&o.action));
+                lines.push(format!("{:>12.6} {:>10.6}  {}{mark}", o.value, regret, v.format_action(&o.action)));
+            }
+            for line in lines {
+                if writeln!(out, "{line}").is_err() {
+                    break;
+                }
             }
             Ok(true)
         }
@@ -267,7 +277,7 @@ fn run(cli: Cli) -> Result<bool, String> {
             );
             Ok(true)
         }
-        Command::Verify { quick } => {
+        Command::Verify { quick, golden } => {
             let mut ok = true;
             println!("brute-force cross-check (exact rational arithmetic):");
             for v in reduced_variants() {
@@ -304,10 +314,49 @@ fn run(cli: Cli) -> Result<bool, String> {
                     );
                 }
             }
+            if let Some(path) = golden {
+                let (n, bad) = check_golden(&path)?;
+                ok &= bad == 0 && n > 0;
+                println!("golden set {}: {n} situations, {bad} mismatches", path.display());
+            }
             println!("{}", if ok { "all checks passed" } else { "CHECKS FAILED" });
             Ok(ok)
         }
     }
+}
+
+/// Checks every situation of a golden file (JSON Lines: variant, situation, state_value, options as
+/// [code, value] pairs) against fresh solves, bit for bit. Returns (situations, mismatches).
+fn check_golden(path: &PathBuf) -> Result<(usize, usize), String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut solvers: std::collections::HashMap<String, Solver> = std::collections::HashMap::new();
+    let (mut n, mut bad) = (0, 0);
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let row: serde_json::Value = serde_json::from_str(line).map_err(|e| e.to_string())?;
+        let id = row["variant"].as_str().ok_or("golden row without variant")?.to_string();
+        let solver = match solvers.get(&id) {
+            Some(s) => s,
+            None => {
+                let s = Solver::build(&variant(&id)?);
+                solvers.entry(id.clone()).or_insert(s)
+            }
+        };
+        let v = solver.variant();
+        let sit = v
+            .parse_situation(row["situation"].as_str().ok_or("golden row without situation")?)
+            .map_err(|e| e.to_string())?;
+        let got = solver.option_values(&sit).map_err(|e| e.to_string())?;
+        let want = row["options"].as_array().ok_or("golden row without options")?;
+        let same = got.len() == want.len()
+            && got.iter().zip(want).all(|(o, w)| {
+                w[0].as_u64() == v.action_code(&o.action).map(u64::from)
+                    && w[1].as_f64().map(f64::to_bits) == Some(o.value.to_bits())
+            })
+            && row["state_value"].as_f64().map(f64::to_bits) == Some(solver.state_value(&sit.state).to_bits());
+        n += 1;
+        bad += usize::from(!same);
+    }
+    Ok((n, bad))
 }
 
 fn main() -> ExitCode {

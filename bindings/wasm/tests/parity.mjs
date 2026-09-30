@@ -2,9 +2,11 @@
 // Run with `node tests/parity.mjs` after building the package (pkg/).
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import * as ys from "../pkg/node.js";
+// The module under test: the local build by default, or an installed package (YATZY_SOLVER_MODULE=yatzy-solver)
+// when checking a released artifact. GOLDEN overrides the golden file's path.
+const ys = await import(process.env.YATZY_SOLVER_MODULE ?? "../pkg/node.js");
 
-const golden = readFileSync(new URL("../../../golden/parity.jsonl", import.meta.url), "utf8")
+const golden = readFileSync(process.env.GOLDEN ?? new URL("../../../golden/parity.jsonl", import.meta.url), "utf8")
   .trim()
   .split("\n")
   .map((l) => JSON.parse(l));

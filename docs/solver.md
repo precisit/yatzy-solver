@@ -85,6 +85,18 @@ mains power), release build, 2026-09-30, load average 1.6 to 4 throughout.
 | batch labelling, 100 000 distinct situations: 100 000 per second per core | 258 000 (one thread); 504 000 to 519 000 (all threads) |
 | table size, f32: 8 MB | 8 388 768 bytes |
 
+Release check, 2026-10-01, on a Mac mini (Apple M5 Pro, 18 cores, 64 GB, macOS 27), reserved for the run; load
+average 1.4 to 7 (1-minute; the 5-minute average stayed between 1.5 and 3), with the release-candidate binaries:
+
+| | measured |
+| --- | --- |
+| `yatzy-solver verify --golden golden/parity.jsonl` | all published values ok; 300 golden situations, 0 mismatches |
+| build Scandinavian, one core / all cores | 10.5 s / 0.71 s |
+| build American rules, one core / all cores | 4.5 s / 0.32 s |
+| `state_value` | 2.5 ns |
+| option values of one situation | 0.4 µs (0 rerolls left), 2.8 µs (1), 4.4 µs (2) |
+| batch labelling, 100 000 distinct situations | 268 000 to 270 000 (one thread); 587 000 to 618 000 (all threads) |
+
 Earlier figures from an Apple M1 Max under heavy load (load average 50 to 160: 23 s one-core build, 128 000
 situations per second per core) are superseded by these. WebAssembly figures are in [wasm](wasm.md).
 

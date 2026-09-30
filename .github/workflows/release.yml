@@ -1,0 +1,396 @@
+name: Release
+
+# Builds every release artifact, installs them on Linux, macOS and Windows, and checks the golden set through
+# Rust, Python and WebAssembly from the artifacts. Publishes only on a version tag, after an approval in the
+# `release` environment (see RELEASE.md). Pull requests that touch release inputs get a dry run.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "release/**"
+      - "bindings/**"
+      - "Cargo.toml"
+      - "crates/*/Cargo.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_PACK_VERSION: "0.15.0"
+
+jobs:
+  crates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Packages both crates and builds each from its tarball.
+      - run: cargo package --workspace --exclude yatzy-solver-python --exclude yatzy-solver-wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crates
+          path: target/package/*.crate
+
+  cli:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, exe: yatzy-solver }
+          - { os: macos-latest, target: aarch64-apple-darwin, exe: yatzy-solver }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: yatzy-solver.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p yatzy-solver-cli --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
+
+  tables:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p yatzy-solver-cli
+      - name: Build the tables
+        run: |
+          mkdir -p tables
+          for v in yatzy-scandinavian american; do for p in f32 f64; do
+            target/release/yatzy-solver build --variant $v --precision $p --out tables/$v.$p.yzt
+          done; done
+      - name: Check them against the published hashes
+        run: cd tables && sha256sum -c ../release/tables.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tables
+          path: |
+            tables/*.yzt
+            release/tables.sha256
+            release/values.sha256
+
+  wheels:
+    strategy:
+      matrix:
+        include:
+          - { name: linux-x86_64, os: ubuntu-latest, target: x86_64 }
+          - { name: linux-aarch64, os: ubuntu-latest, target: aarch64 }
+          - { name: macos-arm64, os: macos-latest, target: aarch64 }
+          - { name: macos-x86_64, os: macos-latest, target: x86_64 }
+          - { name: windows-x86_64, os: windows-latest, target: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: --release -m bindings/python/Cargo.toml -o dist
+          manylinux: auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: dist/*.whl
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -m bindings/python/Cargo.toml -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ env.WASM_PACK_VERSION }}-${{ runner.os }}
+      - run: command -v wasm-pack || cargo install wasm-pack --locked --version $WASM_PACK_VERSION
+      - run: wasm-pack build bindings/wasm --release --target web --out-dir pkg --out-name yatzy_solver
+      - run: node bindings/wasm/scripts/package.mjs
+      - run: mkdir -p npm && cd bindings/wasm/pkg && npm pack --pack-destination ../../../npm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm
+          path: npm/*.tgz
+
+  # Install the artifacts, not the source, on each platform, and run the same golden set through all three.
+  check:
+    needs: [crates, cli, tables, wheels, npm]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, exe: yatzy-solver, wheel: linux-x86_64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, exe: yatzy-solver, wheel: macos-arm64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: yatzy-solver.exe, wheel: windows-x86_64 }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Tables match the published hashes
+        run: cd artifacts/tables/tables && sha256sum -c ../release/tables.sha256
+
+      - name: CLI binary - golden set, published values, a table query
+        run: |
+          cli=artifacts/cli-${{ matrix.target }}/${{ matrix.exe }}
+          chmod +x "$cli"
+          "$cli" --version
+          "$cli" verify --golden golden/parity.jsonl
+          "$cli" query --table artifacts/tables/tables/yatzy-scandinavian.f32.yzt "dice 1 3 3 5 6 | rolls 2 | upper 0 | filled -" | head -3
+
+      - name: Python wheel - golden set and tests
+        run: |
+          python -m pip install numpy pytest pyarrow
+          python -m pip install --no-index --find-links artifacts/wheels-${{ matrix.wheel }} yatzy-solver
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          python -c "import yatzy_solver as ys; print(ys.__version__, ys.__file__); assert ys.__version__ == '$version'"
+          python -m pytest -q bindings/python/tests
+
+      - name: npm package - golden set
+        run: |
+          mkdir npmcheck && cd npmcheck
+          npm init -y > /dev/null
+          npm install ../artifacts/npm/*.tgz
+          cp ../bindings/wasm/tests/parity.mjs .
+          YATZY_SOLVER_MODULE=yatzy-solver GOLDEN=../golden/parity.jsonl node parity.mjs
+
+      - name: Rust crate - build a consumer against the packaged crate
+        run: |
+          # Outside the checkout, so cargo does not take it for a member of this repository's workspace.
+          crates="$PWD/artifacts/crates"
+          mkdir -p "$RUNNER_TEMP/cratecheck/vendor" && cd "$RUNNER_TEMP/cratecheck"
+          tar -xzf "$crates"/yatzy-solver-[0-9]*.crate -C vendor
+          crate=$(ls vendor)
+          cargo init --name cratecheck --vcs none -q
+          cargo add --path "vendor/$crate" -q
+          cat > src/main.rs <<'EOF'
+          fn main() {
+              let v = yatzy_solver::Variant::american();
+              let s = yatzy_solver::Solver::build(&v);
+              let x = s.state_value(&yatzy_solver::State::new());
+              println!("american {x:.10}");
+              assert_eq!(format!("{x:.4}"), "254.5896");
+          }
+          EOF
+          cargo run --release -q
+
+  # The wheels for platforms without a runner here: Linux arm64 under QEMU, Intel macOS with an x86-64 Python
+  # under Rosetta. The same install and tests (golden parity included) as the check job.
+  check-wheels-emulated:
+    needs: wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-aarch64, os: ubuntu-latest }
+          - { name: macos-x86_64, os: macos-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: wheel
+      - if: matrix.name == 'linux-aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - if: matrix.name == 'linux-aarch64'
+        run: |
+          docker run --rm --platform linux/arm64 -v "$PWD":/w -w /w python:3.12 bash -c '
+            set -e
+            python -c "import platform; assert platform.machine() == \"aarch64\", platform.machine()"
+            pip install -q numpy pytest pyarrow
+            pip install -q --no-index --find-links wheel yatzy-solver
+            pytest -q bindings/python/tests'
+      # setup-python's macOS builds are universal2; `arch -x86_64` runs the Intel slice under Rosetta (asking
+      # setup-python for x64 still gave a native arm64 interpreter on arm64 runners). The assertion makes sure the
+      # wheel really is tested as x86_64.
+      - if: matrix.name == 'macos-x86_64'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: matrix.name == 'macos-x86_64'
+        run: |
+          py="arch -x86_64 python"
+          $py -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          $py -m pip install -q numpy pytest pyarrow
+          $py -m pip install -q --no-index --find-links wheel yatzy-solver
+          $py -c "import yatzy_solver, sys; print(yatzy_solver.__file__)"
+          $py -m pytest -q bindings/python/tests
+
+  # On pull requests: the skip-if-published logic against real registry entries and pretended ones.
+  publish-plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Published versions are found, others are not, pretended ones count
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          expect() { want=$1; shift; set +e; release/published.sh "$@"; got=$?; set -e
+            echo "$* -> $got (want $want)"; [ "$got" = "$want" ]; }
+          expect 0 crates serde 1.0.0
+          expect 1 crates yatzy-solver 999.0.0
+          expect 0 pypi numpy 2.0.0
+          expect 1 pypi yatzy-solver 999.0.0
+          expect 0 npm left-pad 1.3.0
+          expect 1 npm yatzy-solver 999.0.0
+          expect 1 github v999.0.0 -
+          export PRETEND_PUBLISHED="crates:yatzy-solver@999.0.0 npm:yatzy-solver@999.0.0 github:v999.0.0@-"
+          expect 0 crates yatzy-solver 999.0.0
+          expect 0 npm yatzy-solver 999.0.0
+          expect 0 github v999.0.0 -
+          expect 2 crates only-two-args
+
+  # On tags: stop before anything else if the release environment has no required reviewer (for example a tag
+  # pushed before the repository was public and the reviewer set; see RELEASE.md).
+  guard:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: The release environment requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api "repos/$GITHUB_REPOSITORY/environments/release" \
+                --jq '[.protection_rules[] | select(.type=="required_reviewers") | (.reviewers | length)] | add // 0') \
+            || { echo "::error::Cannot read the release environment."; exit 1; }
+          if [ "$n" -lt 1 ]; then
+            echo "::error::The release environment has no required reviewer, so nothing would wait for approval. See RELEASE.md."
+            exit 1
+          fi
+          echo "required reviewers: $n"
+
+  publish:
+    needs: [check, check-wheels-emulated, guard]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      HAS_CARGO_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: The tag matches the version
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          test "${GITHUB_REF_NAME#v}" = "$version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # crates.io: the token for the first publish (a new crate cannot be created through trusted publishing);
+      # once the secret is deleted, trusted publishing. Each crate is skipped if its version is already there.
+      - name: crates.io trusted publishing (when there is no token)
+        id: crates-auth
+        if: env.HAS_CARGO_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.crates-auth.outputs.token }}
+        run: |
+          for crate in yatzy-solver yatzy-solver-cli; do
+            set +e; release/published.sh crates "$crate" "$VERSION"; rc=$?; set -e
+            case $rc in
+              0) echo "$crate $VERSION is already on crates.io: skipped" ;;
+              1) cargo publish -p "$crate" ;;
+              *) echo "::error::Could not tell whether $crate $VERSION is on crates.io"; exit 1 ;;
+            esac
+          done
+
+      # PyPI: trusted publishing (a pending publisher for the first release); existing files are skipped.
+      - name: Collect the Python distributions
+        run: mkdir -p pydist && cp artifacts/wheels-*/*.whl artifacts/sdist/*.tar.gz pydist/
+      - name: PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pydist
+          skip-existing: true
+
+      # npm: the token for the first publish; once the secret is deleted, trusted publishing (OIDC). With
+      # provenance, which needs a public repository.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install -g npm@latest   # trusted publishing needs npm 11.5.1 or later
+          set +e; release/published.sh npm yatzy-solver "$VERSION"; rc=$?; set -e
+          case $rc in
+            0) echo "yatzy-solver $VERSION is already on npm: skipped" ;;
+            1) npm publish artifacts/npm/*.tgz --provenance --access public ;;
+            *) echo "::error::Could not tell whether yatzy-solver $VERSION is on npm"; exit 1 ;;
+          esac
+
+      - name: GitHub release with the tables and the CLI binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e; release/published.sh github "$GITHUB_REF_NAME" -; rc=$?; set -e
+          case $rc in
+            0) echo "The release $GITHUB_REF_NAME exists: skipped"; exit 0 ;;
+            1) ;;
+            *) echo "::error::Could not tell whether the release $GITHUB_REF_NAME exists"; exit 1 ;;
+          esac
+          mkdir -p assets
+          cp artifacts/tables/tables/*.yzt artifacts/tables/release/*.sha256 assets/
+          cp artifacts/cli-x86_64-unknown-linux-gnu/yatzy-solver assets/yatzy-solver-x86_64-linux
+          cp artifacts/cli-aarch64-apple-darwin/yatzy-solver assets/yatzy-solver-aarch64-macos
+          cp artifacts/cli-x86_64-pc-windows-msvc/yatzy-solver.exe assets/yatzy-solver-x86_64-windows.exe
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "yatzy-solver ${GITHUB_REF_NAME#v}" \
+            --notes-file release/notes.md assets/*
