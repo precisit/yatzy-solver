@@ -84,6 +84,7 @@ worker.onmessage = (e) => {
     lastPoints = m.points;
   } else if (m.type === "error") {
     if (m.id === queryId) lastOptions = { error: m.message };
+    else if (m.id !== pointsId) status = { error: m.message };
   }
   render();
 };
@@ -143,7 +144,8 @@ function render() {
   sel.innerHTML = Object.entries(L.variants)
     .map(([id, name]) => `<option value="${id}"${id === variant ? " selected" : ""}>${name}</option>`)
     .join("");
-  $("status").textContent = status === "loading" ? L.loading : status === "solving" ? L.solving : L.ready(status);
+  $("status").textContent =
+    status === "loading" ? L.loading : status === "solving" ? L.solving : status.error ? `${L.failed} ${status.error}` : L.ready(status);
 
   // Dice.
   $("dice-title").textContent = L.dice;
