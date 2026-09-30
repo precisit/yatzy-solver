@@ -71,6 +71,10 @@ assert.deepEqual(v.applyScore("upper 60 | filled ones,twos,fours,fives", [3, 3, 
   56,
 ]);
 assert.throws(() => new ys.Variant("yahtzee"));
+assert.equal(v.scoreIn("dice 1 2 3 3 4 | rolls 0 | upper 60 | filled ones,twos,fours,fives", "threes"), 56);
+assert.throws(() => v.scoreIn("dice 1 2 3 3 4 | rolls 0 | upper 3 | filled ones", "ones"));
+const am = new ys.Variant("american");
+assert.equal(am.scoreIn("dice 5 5 5 5 5 | rolls 0 | upper 20 | filled fives,five_of_a_kind | five_of_a_kind 50", "large_straight"), 140);
 assert.equal(v.actionCode("keep 6 6 6 6"), 15 + 209);
 const g = new ys.Game(new ys.Variant("american"));
 assert.equal(g.score([5, 5, 5, 5, 5], "five_of_a_kind"), 50);

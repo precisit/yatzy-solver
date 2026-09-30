@@ -12,7 +12,7 @@ async function sha256(bytes) {
 }
 
 async function loadTable(id) {
-  const manifest = await (await fetch("tables/manifest.json")).json();
+  const manifest = await (await fetch("tables/manifest.json", { cache: "no-cache" })).json();
   const entry = manifest[id];
   if (!entry) return null;
   const url = new URL(`tables/${entry.file}`, self.location).href;
@@ -25,7 +25,12 @@ async function loadTable(id) {
       if (source === "cache") await cache.delete(url);
       continue;
     }
-    if (source === "network") await cache.put(url, res);
+    if (source === "network") {
+      await cache.put(url, res);
+      // Drop cached tables that the manifest no longer lists.
+      const current = new Set(Object.values(manifest).map((m) => new URL(`tables/${m.file}`, self.location).href));
+      for (const req of await cache.keys()) if (!current.has(req.url)) await cache.delete(req);
+    }
     return { bytes, source };
   }
   return null;
@@ -68,15 +73,13 @@ self.onmessage = async (e) => {
       const bests = new Set(s.bestOptions(m.situation).map((o) => o.action));
       post({ type: "options", options: options.map((o) => ({ ...o, loss: bests.has(o.action) ? 0 : best - o.value, best: bests.has(o.action) })) });
     } else if (m.type === "points") {
-      // The points each category would earn now (for labels), from the rules engine.
-      const state = m.situation.split(" | ").slice(2).join(" | ");
-      const dice = m.situation.split(" | ")[0].slice(5).split(" ").map(Number);
+      // The points each legal category would earn now (bonuses included), from the rules engine.
       const out = {};
       for (const c of v.categories) {
         try {
-          out[c] = v.applyScore(state, dice, c)[1];
+          out[c] = v.scoreIn(m.situation, c);
         } catch {
-          /* not legal */
+          /* not legal now */
         }
       }
       post({ type: "points", points: out });

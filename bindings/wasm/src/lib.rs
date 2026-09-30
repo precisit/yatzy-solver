@@ -109,6 +109,14 @@ impl JsVariant {
         Ok(self.v.score(self.category(category)?, &dice_of(dice)?))
     }
 
+    /// The points (bonuses included) that scoring the situation's dice in a category would earn, or an error
+    /// when that category may not be used now. Mirrors the rules engine's `score_in`, jokers included.
+    #[wasm_bindgen(js_name = scoreIn)]
+    pub fn score_in(&self, situation: &str, category: &str) -> Result<u16, JsError> {
+        let sit = self.v.parse_situation(situation).map_err(err)?;
+        Ok(self.v.score_in(&sit.state, &sit.dice, self.category(category)?).map_err(err)?.total())
+    }
+
     #[wasm_bindgen(js_name = startTurn)]
     pub fn start_turn(&self, state: &str, dice: &[u8]) -> Result<String, JsError> {
         let s = self.v.parse_state(state).map_err(err)?;
