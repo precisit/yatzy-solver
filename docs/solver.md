@@ -72,18 +72,21 @@ Loading checks the checksum and that the table was built for exactly the variant
 
 ## Performance (SPEC 5.2)
 
-Measured on an Apple M1 Max (10 cores, 32 GB), release build, 2026-09-29. **Provisional**: the machine was
-running other heavy work, with load averages of 30 to 60 during the measurements.
+Reference figures from a quiet machine: a MacBook Air (Apple M5, 10 cores, 32 GB, air cooled, macOS 27, on
+mains power), release build, 2026-09-30, load average 1.6 to 4 throughout.
 
-| target | measured | load average |
-| --- | --- | --- |
-| build Scandinavian, one core: under 5 min | 23.3 s | 84 to 161 |
-| build Scandinavian, all cores: under 1 min | 4.2 s (3.2 s at load 50) | 84 to 161 |
-| build American rules, one core | 10.2 s | 84 to 161 |
-| `state_value`: under 1 µs | 3.9 ns | 161 |
-| option values of one situation: under 50 µs | 0.9 µs (0 rerolls left), 5.9 µs (1), 9.8 µs (2) | 161 |
-| batch labelling, 100 000 distinct situations: 100 000 per second per core | about 128 000 (one thread); 200 000 to 262 000 (all threads) | 161 |
-| table size, f32: 8 MB | 8 388 768 bytes | |
+| target | measured |
+| --- | --- |
+| build Scandinavian, one core: under 5 min | 10.8 s |
+| build Scandinavian, all cores: under 1 min | 1.7 s |
+| build American rules, one core / all cores | 4.6 s / 0.76 s |
+| `state_value`: under 1 µs | 2.4 ns |
+| option values of one situation: under 50 µs | 0.4 µs (0 rerolls left), 2.9 µs (1), 4.6 µs (2) |
+| batch labelling, 100 000 distinct situations: 100 000 per second per core | 258 000 (one thread); 504 000 to 519 000 (all threads) |
+| table size, f32: 8 MB | 8 388 768 bytes |
+
+Earlier figures from an Apple M1 Max under heavy load (load average 50 to 160: 23 s one-core build, 128 000
+situations per second per core) are superseded by these. WebAssembly figures are in [wasm](wasm.md).
 
 The batch figures use 100 000 distinct situations from the optimal and uniform export sources. An earlier figure
 (M3: 144 800 per second) came from a benchmark that cycled 20 000 situations and so stayed in cache; on distinct
@@ -93,4 +96,4 @@ is computed once per distinct score rather than once per hand, and keeps are enu
 precomputed lists instead of allocating and sorting per situation.
 
 Reproduce with `RAYON_NUM_THREADS=1 yatzy-solver build`, `yatzy-solver build`, and
-`cargo run --release --example bench` (all numbers provisional until an idle-machine run before the release).
+`cargo run --release --example bench`.

@@ -286,6 +286,11 @@ impl TurnModel {
     }
 
     /// V(s) from the table entries of the states after `s`.
+    ///
+    /// Not inlined on purpose: in WebAssembly, engines optimize a function between calls, so the hot per-state
+    /// code must be a function that is called often, not inlined into the one long call that solves the table
+    /// (in V8 that made the first solve in a process about five times slower).
+    #[inline(never)]
     fn state_value<T: Value>(&self, s: &State, table: &[T], scr: &mut Scratch<T>) -> T {
         let Scratch { e, k, memo } = scr;
         self.final_values(s, table, e, memo);
