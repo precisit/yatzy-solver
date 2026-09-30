@@ -110,6 +110,9 @@ enum Command {
         /// Skip solving the full variants.
         #[arg(long)]
         quick: bool,
+        /// Also check a golden set (golden/parity.jsonl): every option value, bit for bit.
+        #[arg(long)]
+        golden: Option<PathBuf>,
     },
 }
 
@@ -267,7 +270,7 @@ fn run(cli: Cli) -> Result<bool, String> {
             );
             Ok(true)
         }
-        Command::Verify { quick } => {
+        Command::Verify { quick, golden } => {
             let mut ok = true;
             println!("brute-force cross-check (exact rational arithmetic):");
             for v in reduced_variants() {
@@ -304,10 +307,49 @@ fn run(cli: Cli) -> Result<bool, String> {
                     );
                 }
             }
+            if let Some(path) = golden {
+                let (n, bad) = check_golden(&path)?;
+                ok &= bad == 0 && n > 0;
+                println!("golden set {}: {n} situations, {bad} mismatches", path.display());
+            }
             println!("{}", if ok { "all checks passed" } else { "CHECKS FAILED" });
             Ok(ok)
         }
     }
+}
+
+/// Checks every situation of a golden file (JSON Lines: variant, situation, state_value, options as
+/// [code, value] pairs) against fresh solves, bit for bit. Returns (situations, mismatches).
+fn check_golden(path: &PathBuf) -> Result<(usize, usize), String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut solvers: std::collections::HashMap<String, Solver> = std::collections::HashMap::new();
+    let (mut n, mut bad) = (0, 0);
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let row: serde_json::Value = serde_json::from_str(line).map_err(|e| e.to_string())?;
+        let id = row["variant"].as_str().ok_or("golden row without variant")?.to_string();
+        let solver = match solvers.get(&id) {
+            Some(s) => s,
+            None => {
+                let s = Solver::build(&variant(&id)?);
+                solvers.entry(id.clone()).or_insert(s)
+            }
+        };
+        let v = solver.variant();
+        let sit = v
+            .parse_situation(row["situation"].as_str().ok_or("golden row without situation")?)
+            .map_err(|e| e.to_string())?;
+        let got = solver.option_values(&sit).map_err(|e| e.to_string())?;
+        let want = row["options"].as_array().ok_or("golden row without options")?;
+        let same = got.len() == want.len()
+            && got.iter().zip(want).all(|(o, w)| {
+                w[0].as_u64() == v.action_code(&o.action).map(u64::from)
+                    && w[1].as_f64().map(f64::to_bits) == Some(o.value.to_bits())
+            })
+            && row["state_value"].as_f64().map(f64::to_bits) == Some(solver.state_value(&sit.state).to_bits());
+        n += 1;
+        bad += usize::from(!same);
+    }
+    Ok((n, bad))
 }
 
 fn main() -> ExitCode {
