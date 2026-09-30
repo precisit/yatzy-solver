@@ -72,3 +72,7 @@ jobs:
       - run: wasm-pack build bindings/wasm --release --target web --out-dir pkg --out-name yatzy_solver
       - run: node bindings/wasm/scripts/package.mjs
       - run: node bindings/wasm/tests/parity.mjs
+      # The advisor serves the published tables: its manifest must list the hashes in release/tables.sha256.
+      - run: cargo build --release -p yatzy-solver-cli
+      - run: node demo/build.mjs
+      - run: node demo/check-manifest.mjs
