@@ -51,6 +51,9 @@ pub struct Row {
     pub best_value: f64,
     /// The action taken (trajectory sources); `None` for uniform samples.
     pub chosen: Option<Action>,
+    /// True when the perturbation drew the action at random (false for deliberate choices, including all
+    /// optimal play); `None` for uniform samples.
+    pub random: Option<bool>,
 }
 
 /// The stream of uniform sample `i` of a run with seed `seed` (generator version 1): seeded with
@@ -80,7 +83,8 @@ pub fn trajectory(solver: &Solver, source: Source, seed: u64, game: u64) -> Vec<
         loop {
             let options = solver.option_values(&sit).expect("situations reached in play are legal");
             let best = options.iter().map(|o| o.value).fold(f64::NEG_INFINITY, f64::max);
-            let action = if p > 0.0 && (policy_rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64) < p {
+            let random = p > 0.0 && (policy_rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64) < p;
+            let action = if random {
                 options[policy_rng.below(options.len() as u64) as usize].action
             } else {
                 solver.best_action(&sit).expect("legal")
@@ -95,6 +99,7 @@ pub fn trajectory(solver: &Solver, source: Source, seed: u64, game: u64) -> Vec<
                 options,
                 best_value: best,
                 chosen: Some(action),
+                random: Some(random),
             });
             match action {
                 Action::Keep(k) => {
@@ -205,6 +210,7 @@ pub fn uniform_sample(solver: &Solver, reachable: &ReachableStates, seed: u64, i
         options,
         best_value,
         chosen: None,
+        random: None,
     }
 }
 
@@ -337,7 +343,8 @@ pub fn row_json(v: &Variant, meta: &Meta, row: &Row) -> String {
         );
     }
     let chosen = row.chosen.map_or("null".to_string(), |a| v.action_code(&a).expect("legal").to_string());
-    let _ = write!(o, "],\"best_value\":{:?},\"chosen\":{chosen}}}", row.best_value);
+    let random = row.random.map_or("null".to_string(), |r| r.to_string());
+    let _ = write!(o, "],\"best_value\":{:?},\"chosen\":{chosen},\"random\":{random}}}", row.best_value);
     o
 }
 
@@ -359,7 +366,8 @@ mod parquet_out {
 
     use arrow_array::builder::{Float64Builder, Int16Builder, ListBuilder, StringBuilder, StructBuilder, UInt8Builder};
     use arrow_array::{
-        ArrayRef, Float64Array, Int16Array, RecordBatch, StringArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+        ArrayRef, BooleanArray, Float64Array, Int16Array, RecordBatch, StringArray, UInt8Array, UInt16Array,
+        UInt32Array, UInt64Array,
     };
     use arrow_schema::{DataType, Field, Fields, Schema};
     use parquet::arrow::ArrowWriter;
@@ -406,6 +414,7 @@ mod parquet_out {
             ),
             Field::new("best_value", DataType::Float64, false),
             Field::new("chosen", DataType::Int16, true),
+            Field::new("random", DataType::Boolean, true),
         ])
     }
 
@@ -476,6 +485,7 @@ mod parquet_out {
                 Arc::new(Int16Array::from(
                     chunk.iter().map(|r| r.chosen.map(|a| v.action_code(&a).unwrap() as i16)).collect::<Vec<_>>(),
                 )),
+                Arc::new(BooleanArray::from(chunk.iter().map(|r| r.random).collect::<Vec<_>>())),
             ];
             let batch = RecordBatch::try_new(schema.clone(), cols)
                 .map_err(|e| parquet::errors::ParquetError::General(e.to_string()))?;

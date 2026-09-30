@@ -57,6 +57,7 @@ def test_export_jsonl_and_parquet(solvers, tmp_path):
     assert s.export(str(p), 500, source="perturbed", seed=3, perturb=0.2) == 500
     rows = [json.loads(l) for l in p.read_text().splitlines()]
     assert len(rows) == 500 and rows[0]["source"] == "perturbed" and rows[0]["perturb"] == 0.2
+    assert all(isinstance(r["random"], bool) for r in rows) and any(r["random"] for r in rows)
     for r in rows[:50]:
         got = s.option_values(r["notation"])
         assert [x for _, x in got] == [o["value"] for o in r["options"]]
@@ -65,8 +66,8 @@ def test_export_jsonl_and_parquet(solvers, tmp_path):
     q = tmp_path / "rows.parquet"
     assert s.export(str(q), 500, source="uniform", seed=3, format="parquet") == 500
     t = pq.read_table(q)
-    assert t.num_rows == 500 and t.column_names[-1] == "chosen"
+    assert t.num_rows == 500 and t.column_names[-2:] == ["chosen", "random"]
     first = t.slice(0, 1).to_pylist()[0]
-    assert first["score_so_far"] is None and first["chosen"] is None
+    assert first["score_so_far"] is None and first["chosen"] is None and first["random"] is None
     got = s.option_values(first["notation"])
     assert [x for _, x in got] == [o["value"] for o in first["options"]]

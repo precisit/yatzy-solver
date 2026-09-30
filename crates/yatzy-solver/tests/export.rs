@@ -66,6 +66,16 @@ fn perturbed_share_and_limits() {
         let bad = rows.iter().filter(|r| s.regret(&r.situation, &r.chosen.unwrap()).unwrap() > 0.0).count();
         bad as f64 / rows.len() as f64
     };
+    // The random flag: never set for optimal play; a non-random decision is always a best action; about p of
+    // the decisions are random.
+    let rows = export_rows(&s, Source::Perturbed(0.3), 4, 20_000);
+    assert!(rows.iter().all(|r| r.random == Some(false) || r.random == Some(true)));
+    for r in rows.iter().filter(|r| r.random == Some(false)) {
+        assert_eq!(s.regret(&r.situation, &r.chosen.unwrap()).unwrap(), 0.0);
+    }
+    let share = rows.iter().filter(|r| r.random == Some(true)).count() as f64 / rows.len() as f64;
+    assert!((share - 0.3).abs() < 0.02, "{share}");
+    assert!(export_rows(&s, Source::Optimal, 4, 2000).iter().all(|r| r.random == Some(false)));
     // p = 0 is optimal play.
     let opt: Vec<_> = export_rows(&s, Source::Optimal, 4, 500).into_iter().map(|r| r.situation).collect();
     let p0: Vec<_> = export_rows(&s, Source::Perturbed(0.0), 4, 500).into_iter().map(|r| r.situation).collect();
@@ -107,7 +117,7 @@ fn uniform_samples_cover_the_reachable_states() {
     let s = Solver::build(&v);
     let rows = export_rows(&s, Source::Uniform, 2, 3000);
     check_rows(&s, &rows);
-    assert!(rows.iter().all(|r| r.score_so_far.is_none() && r.chosen.is_none()));
+    assert!(rows.iter().all(|r| r.score_so_far.is_none() && r.chosen.is_none() && r.random.is_none()));
     for rl in 0..3 {
         assert!(rows.iter().filter(|r| r.situation.rolls_left == rl).count() > 800);
     }
@@ -145,6 +155,7 @@ fn json_lines_schema() {
         "options",
         "best_value",
         "chosen",
+        "random",
     ];
     for (line, r) in lines.iter().zip(&rows) {
         let j: serde_json::Value = serde_json::from_str(line).unwrap();
@@ -176,6 +187,7 @@ fn json_lines_schema() {
         }
         assert_eq!(j["best_value"].as_f64().unwrap(), r.best_value);
         assert_eq!(j["chosen"].as_u64().unwrap() as u16, v.action_code(&r.chosen.unwrap()).unwrap());
+        assert_eq!(j["random"].as_bool(), r.random);
         match r.situation.state.filled & (1 << v.category_index("five_of_a_kind").unwrap()) {
             0 => assert!(j["five_of_a_kind"].is_null()),
             _ => assert!(j["five_of_a_kind"] == 0 || j["five_of_a_kind"] == 50),
@@ -196,9 +208,10 @@ fn parquet_round_trip() {
     assert_eq!(meta.file_metadata().num_rows(), 2500);
     let names: Vec<String> =
         meta.file_metadata().schema_descr().root_schema().get_fields().iter().map(|f| f.name().to_string()).collect();
-    assert_eq!(names.len(), 20);
+    assert_eq!(names.len(), 21);
     assert_eq!(names[0], "variant");
     assert_eq!(names[19], "chosen");
+    assert_eq!(names[20], "random");
     // Values survive: read the first row's best_value back.
     let mut it = reader.get_row_iter(None).unwrap();
     let first = it.next().unwrap().unwrap();

@@ -46,8 +46,9 @@ Values are expected **remaining** scores; add the score so far for the expected 
 | simulation | `simulate(games, seed=0, logs=False, policy=None)` -> dict with `scores` (uint16 array), `mean`, `std_dev`, `std_error`, `min`, `median`, `max`, `rng`, `logs` |
 | export | `export(path, rows, source="optimal", seed=0, format="jsonl", perturb=0.1)` ([export](export.md)) |
 
-Situations, states and actions are strings in the [stable notation](notation.md). Invalid input raises
-`ValueError`.
+Situations, states and actions are strings in the [stable notation](notation.md) for single queries; batch
+functions take and return numpy arrays. This shape of the API is fixed for the first release. Invalid input
+raises `ValueError`.
 
 ### Batch
 
@@ -56,6 +57,21 @@ arr = v.situation_arrays(list_of_situations)
 codes, values, counts = solver.option_values_batch(arr["filled"], arr["upper"], arr["armed"], arr["dice"], arr["rolls_left"])
 dense = v.dense(codes, values, counts)        # n x (C + 210), NaN where illegal
 ```
+
+`situation_arrays(situations)` returns a dict of numpy arrays, one row per situation, which are also the
+inputs of the batch functions:
+
+| key | dtype | shape | meaning |
+| --- | --- | --- | --- |
+| `filled` | uint32 | `(n,)` | filled-category mask: bit `c` set when category `c` (score-card order, `Variant.categories`) is filled |
+| `upper` | uint16 | `(n,)` | upper-section total so far, not capped (0 to 105) |
+| `armed` | bool | `(n,)` | American rules: the five-of-a-kind box holds 50, so another five of a kind earns the bonus; always false otherwise |
+| `dice` | uint8 | `(n, dice)` | the dice, ascending, faces 1 to 6 |
+| `rolls_left` | uint8 | `(n,)` | rerolls left: 2, 1 or 0 |
+
+`state_values` takes the first three. Inconsistent rows (bits outside the variant, an upper total with no
+upper box filled, `armed` with the box open, a finished game for `option_values_batch`) raise `ValueError`
+naming the row.
 
 `codes` (int16) and `values` (float64) are `n x (C + 31)`, padded with -1 and NaN; `counts` (uint16) gives
 the options per row. About 104 000 situations per second on one thread and 256 000 on all threads, on an M1 Max
