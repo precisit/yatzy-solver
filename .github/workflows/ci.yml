@@ -48,3 +48,21 @@ jobs:
       - run: maturin build --release -m bindings/python/Cargo.toml -o dist
       - run: pip install --no-index --find-links dist yatzy-solver
       - run: pytest -q bindings/python/tests
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cargo clippy -p yatzy-solver-wasm --target wasm32-unknown-unknown -- -D warnings
+      - run: cargo install wasm-pack --locked
+      - run: wasm-pack build bindings/wasm --release --target web --out-dir pkg --out-name yatzy_solver
+      - run: node bindings/wasm/scripts/package.mjs
+      - run: node bindings/wasm/tests/parity.mjs

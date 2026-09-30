@@ -28,3 +28,6 @@ DISCOURSE.md
 /bindings/python/python/yatzy_solver/*.so
 /bindings/python/python/yatzy_solver/*.pyd
 .pytest_cache/
+
+# Project-local toolchains (rustup with the wasm32 target, wasm-pack)
+/.tools/
