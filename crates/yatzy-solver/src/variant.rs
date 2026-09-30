@@ -126,6 +126,8 @@ pub struct Variant {
     upper_mask: u32,
     /// The Yahtzee box, when the variant has a Yahtzee bonus.
     all_same_box: Option<usize>,
+    /// The keeps that can be legal (multisets of fewer dice than a hand), in code order.
+    keep_codes: Vec<Dice>,
 }
 
 /// Why a variant definition is invalid.
@@ -263,7 +265,8 @@ impl Variant {
                 _ => return err("a Yahtzee bonus needs exactly one all-same category".into()),
             },
         };
-        Ok(Variant { def, upper_of_face, upper_mask, all_same_box })
+        let keep_codes = crate::dice::all_multisets_up_to(usize::from(def.dice) - 1);
+        Ok(Variant { def, upper_of_face, upper_mask, all_same_box, keep_codes })
     }
 
     /// Scandinavian Yatzy with default house rules (SPEC 2.1).
@@ -462,6 +465,11 @@ impl Variant {
 
     pub fn all_same_bonus(&self) -> Option<AllSameBonus> {
         self.def.all_same_bonus
+    }
+
+    /// The keeps that can be legal, in action-code order ([`crate::codes`]).
+    pub fn keep_codes(&self) -> &[Dice] {
+        &self.keep_codes
     }
 
     /// The joker rule; [`JokerRule::None`] without a Yahtzee bonus.

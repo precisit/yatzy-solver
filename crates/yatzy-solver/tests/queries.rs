@@ -148,6 +148,28 @@ fn batch_equals_single() {
     for (s, b) in sits.iter().zip(&batch) {
         assert_eq!(&solver.option_values(s), b);
     }
+    // The flat layout holds the same values, and the dense layout scatters them by code.
+    let ok: Vec<Situation> = sits[..500].to_vec();
+    let flat = solver.option_values_flat(&ok).unwrap();
+    let v = solver.variant();
+    let dense = flat.to_dense(v.num_action_codes());
+    assert_eq!(flat.width, v.num_categories() + 31);
+    for (r, b) in batch[..500].iter().enumerate() {
+        let opts = b.as_ref().unwrap();
+        assert_eq!(usize::from(flat.counts[r]), opts.len());
+        for (j, o) in opts.iter().enumerate() {
+            let code = v.action_code(&o.action).unwrap();
+            assert_eq!(flat.codes[r * flat.width + j], code as i16);
+            assert_eq!(flat.values[r * flat.width + j], o.value);
+            assert_eq!(dense[r * v.num_action_codes() + usize::from(code)], o.value);
+        }
+        assert!(flat.codes[r * flat.width + opts.len()..(r + 1) * flat.width].iter().all(|&c| c == -1));
+        assert_eq!(
+            dense[r * v.num_action_codes()..(r + 1) * v.num_action_codes()].iter().filter(|x| !x.is_nan()).count(),
+            opts.len()
+        );
+    }
+    assert_eq!(solver.option_values_flat(&sits).unwrap_err().0, 500);
     let states: Vec<State> = sits.iter().map(|s| s.state).collect();
     let vals = solver.state_values(&states);
     assert!(states.iter().zip(&vals).all(|(s, &x)| solver.state_value(s) == x));
@@ -155,15 +177,49 @@ fn batch_equals_single() {
 
 #[test]
 fn generator_is_the_documented_xoshiro256starstar() {
-    // Reference values from an independent implementation of SplitMix64 seeding and xoshiro256**.
+    use yatzy_solver::simulate::mix;
+    // Reference values from an independent implementation of SplitMix64, xoshiro256** and the stream
+    // derivation (docs/queries.md). mix(0) is the canonical first SplitMix64 output.
+    assert_eq!(mix(0), 0xe220a8397b1dcdaf);
+    assert_eq!(mix(12345), 0x22118258a9d111a0);
     let mut r = Rng::new(0);
     assert_eq!(
         [r.next_u64(), r.next_u64(), r.next_u64()],
         [0x99ec5f36cb75f2b4, 0xbf6e1f784956452a, 0x1a5f849d4933e6e0]
     );
-    let mut r = Rng::for_game(42, 7);
-    let dice: Vec<u8> = (0..10).map(|_| r.die()).collect();
-    assert_eq!(dice, [3, 5, 1, 1, 3, 6, 4, 6, 6, 6]);
+    let mut r = Rng::for_dice(42, 7, 3);
+    let dice: Vec<u8> = (0..15).map(|_| r.die()).collect();
+    assert_eq!(dice, [5, 4, 5, 6, 2, 3, 1, 4, 2, 1, 5, 6, 2, 4, 2]);
+    let mut r = Rng::for_policy(42, 7);
+    assert_eq!([r.next_u64(), r.next_u64()], [0x56de4991b7cb08eb, 0x292c127d7a2eec8c]);
+    // Blocks: a reroll of m dice uses the first m of a full block of five.
+    let mut a = Rng::for_dice(42, 7, 3);
+    let mut b = Rng::for_dice(42, 7, 3);
+    assert_eq!(a.roll_block(5, 2), Dice::from_faces(&[5, 4]).unwrap());
+    assert_eq!(b.roll_block(5, 5), Dice::from_faces(&[5, 4, 5, 6, 2]).unwrap());
+    assert_eq!(a.roll_block(5, 3), b.roll_block(5, 3));
+}
+
+#[test]
+fn dice_do_not_depend_on_the_policy() {
+    // Common random numbers: under the same seed, every policy sees the same first roll of every turn, and the
+    // same dice on each reroll it shares.
+    let solver = Solver::build(&Variant::scandinavian());
+    let v = solver.variant();
+    for game in 0..50 {
+        let opt = play_game(v, &mut OptimalPolicy { solver: &solver }, 11, game, true).unwrap();
+        let rnd = play_game(v, &mut RandomPolicy, 11, game, true).unwrap();
+        let firsts = |log: &yatzy_solver::simulate::GameLog| -> Vec<Dice> {
+            log.decisions.iter().filter(|d| d.situation.rolls_left == v.rolls() - 1).map(|d| d.situation.dice).collect()
+        };
+        // Each turn's first roll appears once per turn in the log (the first decision of the turn).
+        let (a, b) = (firsts(&opt), firsts(&rnd));
+        assert_eq!(a.len(), v.num_categories());
+        assert_eq!(a, b, "game {game}");
+        for t in 0..v.num_categories() as u32 {
+            assert_eq!(a[t as usize], Rng::for_dice(11, game, t).roll_block(5, 5));
+        }
+    }
 }
 
 #[test]
@@ -218,5 +274,56 @@ fn simulated_means_are_within_their_interval_of_the_exact_mean() {
             sum.mean, sum.std_error, sum.std_dev, sum.median
         );
         assert!(z.abs() < 4.0, "{id}: simulated mean {} is {z:.1} standard errors from {exact}", sum.mean);
+    }
+}
+
+#[test]
+fn tie_sets_agree_between_f32_and_f64_tables() {
+    use yatzy_solver::{Precision, Table};
+    for id in ["yatzy-scandinavian", "american"] {
+        let f64s = Solver::build(&Variant::by_id(id).unwrap());
+        let v = f64s.variant().clone();
+        let f32s = Solver::from_table(&Table::from_values(&v, Precision::F32, f64s.values().to_vec()));
+        let mut sits: Vec<Situation> = Vec::new();
+        for log in f64s.simulate_optimal(300, 8, true).logs {
+            sits.extend(log.decisions.iter().map(|d| d.situation));
+        }
+        let mut rng = Rng::new(31);
+        sits.extend((0..10_000).map(|_| random_situation(&v, &mut rng)));
+        let mut tied = 0;
+        for sit in &sits {
+            let a: Vec<Action> = f64s.best_options(sit).unwrap().iter().map(|o| o.action).collect();
+            let b: Vec<Action> = f32s.best_options(sit).unwrap().iter().map(|o| o.action).collect();
+            assert_eq!(a, b, "{id}: {}", v.format_situation(sit));
+            tied += usize::from(a.len() > 1);
+        }
+        // The sample must contain ties, or it tests nothing.
+        assert!(tied > 50, "{id}: only {tied} situations with ties");
+    }
+}
+
+#[test]
+fn score_so_far_plus_points_to_come_is_the_final_score() {
+    // score_so_far includes every bonus already earned; the points still to come include every bonus not yet
+    // earned. Checked at every decision of every logged game, with the card replayed independently.
+    for id in ["american", "yatzy-scandinavian"] {
+        let solver = Solver::build(&Variant::by_id(id).unwrap());
+        let v = solver.variant();
+        let mut upper_bonus_games = 0;
+        for log in solver.simulate_optimal(300, 3, true).logs {
+            let mut card = Game::new();
+            for (i, d) in log.decisions.iter().enumerate() {
+                let score_so_far = card.total();
+                let to_come: u16 = log.decisions[i..].iter().filter_map(|x| x.scored).map(|s| s.total()).sum();
+                assert_eq!(score_so_far + to_come, log.final_score, "{id} game {}", log.game);
+                assert_eq!(*card.state(), d.situation.state);
+                if let Action::Score(c) = d.action {
+                    card.score(v, &d.situation.dice, c).unwrap();
+                }
+            }
+            assert_eq!(card.total(), log.final_score);
+            upper_bonus_games += usize::from(card.upper_bonus() > 0);
+        }
+        assert!(upper_bonus_games > 50, "{id}: the upper bonus must be exercised");
     }
 }

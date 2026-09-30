@@ -1,4 +1,4 @@
-//! `yatzy-solver build | query | simulate | verify`.
+//! `yatzy-solver build | query | simulate | export | verify`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -6,7 +6,8 @@ use std::time::Instant;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use num_rational::BigRational;
-use yatzy_solver::simulate::{RandomPolicy, simulate};
+use yatzy_solver::export::{Source, export_rows, write_jsonl, write_parquet};
+use yatzy_solver::simulate::{RNG_VERSION, RandomPolicy, simulate};
 use yatzy_solver::table::hex;
 use yatzy_solver::verify::{BruteForce, PUBLISHED, reduced_variants};
 use yatzy_solver::{Action, Precision, Solver, State, Table, TurnModel, Variant};
@@ -22,6 +23,19 @@ struct Cli {
 enum Prec {
     F32,
     F64,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum SourceArg {
+    Optimal,
+    Perturbed,
+    Uniform,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum FormatArg {
+    Jsonl,
+    Parquet,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -69,6 +83,27 @@ enum Command {
         /// Write one JSON object per game (decisions in the stable notation) to this file.
         #[arg(long)]
         log: Option<PathBuf>,
+    },
+    /// Export sampled situations with the value of every option (docs/export.md).
+    Export {
+        #[arg(long, default_value = Variant::SCANDINAVIAN)]
+        variant: String,
+        /// Table file; by default the variant is solved in memory (f64).
+        #[arg(long)]
+        table: Option<PathBuf>,
+        #[arg(long, value_enum, default_value = "optimal")]
+        source: SourceArg,
+        /// Share of random decisions for the perturbed source.
+        #[arg(long, default_value_t = 0.1)]
+        perturb: f64,
+        #[arg(long, default_value_t = 100_000)]
+        rows: usize,
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        #[arg(long, value_enum, default_value = "jsonl")]
+        format: FormatArg,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Check the solver: the brute-force cross-check on reduced games, then the published values.
     Verify {
@@ -194,7 +229,7 @@ fn run(cli: Cli) -> Result<bool, String> {
                         })
                         .collect();
                     out.push_str(&format!(
-                        "{{\"variant\":\"{id}\",\"seed\":{seed},\"game\":{},\"score\":{},\"decisions\":[{}]}}\n",
+                        "{{\"variant\":\"{id}\",\"rng\":{RNG_VERSION},\"seed\":{seed},\"game\":{},\"score\":{},\"decisions\":[{}]}}\n",
                         g.game,
                         g.final_score,
                         decisions.join(",")
@@ -203,6 +238,33 @@ fn run(cli: Cli) -> Result<bool, String> {
                 std::fs::write(&path, out).map_err(|e| format!("{}: {e}", path.display()))?;
                 println!("log          {}", path.display());
             }
+            Ok(true)
+        }
+        Command::Export { variant: id, table, source, perturb, rows, seed, format, out } => {
+            let v = variant(&id)?;
+            let solver = solver(&v, table)?;
+            let src = match source {
+                SourceArg::Optimal => Source::Optimal,
+                SourceArg::Perturbed if (0.0..=1.0).contains(&perturb) => Source::Perturbed(perturb),
+                SourceArg::Perturbed => return Err("--perturb must be between 0 and 1".into()),
+                SourceArg::Uniform => Source::Uniform,
+            };
+            let t0 = Instant::now();
+            let data = export_rows(&solver, src, seed, rows);
+            let file = std::fs::File::create(&out).map_err(|e| format!("{}: {e}", out.display()))?;
+            let mut w = std::io::BufWriter::new(file);
+            match format {
+                FormatArg::Jsonl => write_jsonl(&mut w, &solver, &data).map_err(|e| e.to_string())?,
+                FormatArg::Parquet => write_parquet(w, &solver, &data).map_err(|e| e.to_string())?,
+            }
+            let bytes = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
+            println!(
+                "{} rows ({}, seed {seed}) to {} ({bytes} bytes) in {:.2} s",
+                data.len(),
+                src.name(),
+                out.display(),
+                t0.elapsed().as_secs_f64()
+            );
             Ok(true)
         }
         Command::Verify { quick } => {

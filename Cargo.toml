@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/yatzy-solver", "crates/yatzy-solver-cli"]
+members = ["crates/yatzy-solver", "crates/yatzy-solver-cli", "bindings/python"]
+# The Python extension is built by maturin; plain cargo commands skip it.
+default-members = ["crates/yatzy-solver", "crates/yatzy-solver-cli"]
 
 [workspace.package]
 version = "0.1.0"

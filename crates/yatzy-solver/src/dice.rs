@@ -96,6 +96,19 @@ impl Dice {
         out
     }
 
+    /// The faces in ascending order in a fixed array, and how many there are.
+    pub fn face_array(&self) -> ([u8; MAX_DICE], usize) {
+        let mut out = [0u8; MAX_DICE];
+        let mut n = 0;
+        for (i, &c) in self.counts.iter().enumerate() {
+            for _ in 0..c {
+                out[n] = i as u8 + 1;
+                n += 1;
+            }
+        }
+        (out, n)
+    }
+
     /// The sum of the faces.
     pub fn sum(&self) -> u16 {
         self.counts.iter().enumerate().map(|(i, &c)| (i as u16 + 1) * u16::from(c)).sum()
@@ -190,7 +203,14 @@ fn factorial(n: usize) -> u64 {
 
 /// Canonical order: by size, then by the ascending face sequence, lexicographically.
 pub fn cmp_multisets(a: &Dice, b: &Dice) -> std::cmp::Ordering {
-    a.len().cmp(&b.len()).then_with(|| a.faces().cmp(&b.faces()))
+    a.len().cmp(&b.len()).then_with(|| cmp_faces(a, b))
+}
+
+/// Lexicographic order of the ascending face sequences, without allocating.
+pub fn cmp_faces(a: &Dice, b: &Dice) -> std::cmp::Ordering {
+    let (fa, na) = a.face_array();
+    let (fb, nb) = b.face_array();
+    fa[..na].cmp(&fb[..nb])
 }
 
 /// All multisets of exactly `n` dice, in lexicographic order of their ascending face sequences.

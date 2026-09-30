@@ -13,8 +13,13 @@ default = ["parallel"]
 parallel = ["dep:rayon"]
 # Exact rational arithmetic and the brute-force reference solver.
 verify = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
+# Parquet output for the export.
+parquet = ["dep:parquet", "dep:arrow-array", "dep:arrow-schema"]
 
 [dependencies]
+arrow-array = { version = "60", optional = true }
+arrow-schema = { version = "60", optional = true }
+parquet = { version = "60", optional = true, default-features = false, features = ["arrow", "zstd"] }
 num-bigint = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
 num-traits = { version = "0.2", optional = true }
@@ -25,3 +30,5 @@ sha2 = "0.10"
 proptest = "1"
 num-rational = "0.4"
 num-traits = "0.2"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+bytes = "1"
