@@ -135,6 +135,12 @@ This variant exists to validate the solver against the best-known published numb
   - `regret(situation, option)`: the expected points lost against the best option.
 - **F3. Batch.** Vectorized queries for millions of situations: numpy arrays in and out in Python, typed arrays in
   JavaScript.
+  - Layout (M4): a flat, padded form, with action codes (int16, -1 padding) and values (float64, NaN padding)
+    of width `C + 2^d - 1` per situation, plus a count per row. A helper scatters this into the dense form of
+    `C + 210` columns for five dice.
+  - Ties: options within a tolerance of each other are tied. It is 1e-9 for f64 tables and, as measured
+    (docs/queries.md), also 1e-9 for f32 tables. Orderings closer than the f32 value error (about 1.5e-5) are
+    not reliable from f32 tables.
 - **F4. Simulate.** Play N games with a seeded random generator under the optimal policy or a caller-supplied
   policy. Return the score distribution and per-game logs.
   - **The generator is a stable contract, version 1** (docs/queries.md): xoshiro256** seeded by SplitMix64,
@@ -149,12 +155,16 @@ This variant exists to validate the solver against the best-known published numb
   - optimal-play trajectories;
   - trajectories with a configurable share of random or perturbed decisions, which cover states a good player
     rarely reaches;
-  - uniform sampling over reachable states.
+  - uniform sampling over reachable states: every non-final filled mask (prefixes only under forced order),
+    every upper total the filled upper boxes can add up to, and both five-of-a-kind box values once that box
+    is filled. Each sample has its own generator stream (docs/export.md).
 
   Deterministic with a seed. Formats: Parquet and JSON Lines, with a documented schema (5.5).
 - **F6. Stable notation.** A canonical, documented text form for situations and options, e.g. `dice 1 3 3 5 6 |
   rolls 2 | upper 21 | filled ones,twos,chance` and `keep 3 3` / `score full_house`. Used in logs, tests, exports
   and user interfaces, and stable across versions. Its bytes are part of the golden tests.
+  - The **action code space** is part of it: categories are `0..C-1`, then keeps are `C + k` for the 210 keep
+    multisets that can be legal (0 to 4 dice, by size and then lexicographically) (docs/notation.md).
 - **F7. Rules engine.** Legal options, applying an option, scoring, game over, final score, as a small public API.
   Usable on its own as a game's logic from every binding (web and apps).
 - **F8. Verification tools.**
@@ -180,7 +190,8 @@ This variant exists to validate the solver against the best-known published numb
 - Build the Scandinavian Yatzy table in under 5 minutes on one core of an Apple M1, and under 1 minute on all
   cores.
 - `state_value` under 1 µs; `option_values` for one situation under 50 µs.
-- Batch labelling of at least 100 000 situations per second per core.
+- Batch labelling of at least 100 000 situations per second per core, measured on distinct situations from the
+  export sources, not a small set cycled through the cache.
 - Table size: 8 MB (f32) for Yatzy.
 
 ### 5.3 Correctness
@@ -215,7 +226,10 @@ Per row:
 - the stable notation (F6);
 - the list of legal options, each with its type, notation and exact expected value;
 - the best value;
-- the sampling source (optimal, perturbed, uniform), the seed and the generator version.
+- the sampling source (optimal, perturbed, uniform), the seed and the generator version;
+- added in M4: each option's action code; the table precision; the share of random decisions (perturbed); the
+  game or sample index and the decision index; the five-of-a-kind box status; and the action taken on
+  trajectories. `score_so_far` includes every bonus already earned, and is null for uniform samples.
 
 ### 5.6 Quality of the release
 
@@ -325,5 +339,7 @@ covered above:
 - 2026-09-29: 10.5 resolved (single-precision probabilities in Castux/yahtzee; same rules).
 - 2026-09-30: F4 fixes the generator contract (version 1: per-turn dice streams, a separate policy stream) and
   the tie-breaking rule; 5.5 export rows carry the generator version.
+- 2026-09-30: M4 contracts: the batch layout and tie tolerance (F3), the action code space (F6), the uniform
+  sampler (F5), the added export fields (5.5), and batch speed measured on distinct situations (5.2).
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
