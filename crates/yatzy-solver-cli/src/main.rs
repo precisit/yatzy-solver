@@ -1,5 +1,6 @@
 //! `yatzy-solver build | query | simulate | export | verify`.
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
@@ -172,12 +173,18 @@ fn run(cli: Cli) -> Result<bool, String> {
             let best: Vec<Action> =
                 solver.best_options(&sit).map_err(|e| e.to_string())?.iter().map(|o| o.action).collect();
             options.sort_by(|a, b| b.value.total_cmp(&a.value));
-            println!("{}", v.format_situation(&sit));
-            println!("{:>12} {:>10}  option", "value", "regret");
+            // Stop quietly when the reader closes the pipe (for example `| head`).
+            let mut out = std::io::stdout().lock();
+            let mut lines = vec![v.format_situation(&sit), format!("{:>12} {:>10}  option", "value", "regret")];
             for o in options {
                 let regret = solver.regret(&sit, &o.action).map_err(|e| e.to_string())?;
                 let mark = if best.contains(&o.action) { "  (best)" } else { "" };
-                println!("{:>12.6} {:>10.6}  {}{mark}", o.value, regret, v.format_action(&o.action));
+                lines.push(format!("{:>12.6} {:>10.6}  {}{mark}", o.value, regret, v.format_action(&o.action)));
+            }
+            for line in lines {
+                if writeln!(out, "{line}").is_err() {
+                    break;
+                }
             }
             Ok(true)
         }
