@@ -22,8 +22,9 @@ The first release.
   whose dice do not depend on the policy.
 - **Export.** Optimal, perturbed and uniform samples with every option's value, as JSON Lines or Parquet.
 - **Table files.** A versioned, checksummed, memory-mappable format; prebuilt f32 and f64 tables.
-- **Bindings.** Python (`yatzy-solver` on PyPI, numpy batch functions) and WebAssembly (`yatzy-solver` on npm),
-  bit-identical to Rust on a golden set of 300 situations.
+- **Bindings.** Python (`yatzy-solver` on PyPI, numpy batch functions; abi3 wheels for Python 3.9 and later on
+  Linux x86-64 and arm64, macOS arm64 and x86-64, and Windows x86-64, plus the sdist) and WebAssembly
+  (`yatzy-solver` on npm, with provenance), bit-identical to Rust on a golden set of 300 situations.
 - **Web advisor.** An offline page in Swedish and English that shows every option with its expected final score
   and its loss against the best.
 - **CLI.** `yatzy-solver build | query | simulate | export | verify`.
