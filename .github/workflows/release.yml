@@ -246,17 +246,21 @@ jobs:
             pip install -q numpy pytest pyarrow
             pip install -q --no-index --find-links wheel yatzy-solver
             pytest -q bindings/python/tests'
+      # setup-python's macOS builds are universal2; `arch -x86_64` runs the Intel slice under Rosetta (asking
+      # setup-python for x64 still gave a native arm64 interpreter on arm64 runners). The assertion makes sure the
+      # wheel really is tested as x86_64.
       - if: matrix.name == 'macos-x86_64'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          architecture: x64
       - if: matrix.name == 'macos-x86_64'
         run: |
-          python -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
-          python -m pip install -q numpy pytest pyarrow
-          python -m pip install -q --no-index --find-links wheel yatzy-solver
-          python -m pytest -q bindings/python/tests
+          py="arch -x86_64 python"
+          $py -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          $py -m pip install -q numpy pytest pyarrow
+          $py -m pip install -q --no-index --find-links wheel yatzy-solver
+          $py -c "import yatzy_solver, sys; print(yatzy_solver.__file__)"
+          $py -m pytest -q bindings/python/tests
 
   # On pull requests: the skip-if-published logic against real registry entries and pretended ones.
   publish-plan:
