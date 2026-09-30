@@ -45,6 +45,6 @@ jobs:
           python-version: "3.12"
       - run: cargo clippy -p yatzy-solver-python -- -D warnings
       - run: pip install maturin numpy pytest pyarrow
-      - run: maturin build --release -m bindings/python/pyproject.toml -o dist
+      - run: maturin build --release -m bindings/python/Cargo.toml -o dist
       - run: pip install --no-index --find-links dist yatzy-solver
       - run: pytest -q bindings/python/tests
