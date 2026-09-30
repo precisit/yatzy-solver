@@ -1318,7 +1318,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
 name = "yatzy-solver"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arrow-array",
  "arrow-schema",
@@ -1335,17 +1335,18 @@ dependencies = [
 
 [[package]]
 name = "yatzy-solver-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "num-rational",
  "num-traits",
+ "serde_json",
  "yatzy-solver",
 ]
 
 [[package]]
 name = "yatzy-solver-python"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "numpy",
  "pyo3",
@@ -1354,7 +1355,7 @@ dependencies = [
 
 [[package]]
 name = "yatzy-solver-wasm"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "js-sys",
  "wasm-bindgen",

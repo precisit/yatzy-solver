@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+keywords = ["yatzy", "dice", "solver", "cli"]
+categories = ["games", "command-line-utilities"]
 
 [[bin]]
 name = "yatzy-solver"
@@ -15,4 +18,5 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive"] }
 num-rational = "0.4"
 num-traits = "0.2"
-yatzy-solver = { path = "../yatzy-solver", features = ["verify", "parquet"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+yatzy-solver = { path = "../yatzy-solver", version = "1.0.0", features = ["verify", "parquet"] }

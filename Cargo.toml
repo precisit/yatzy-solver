@@ -5,7 +5,7 @@ members = ["crates/yatzy-solver", "crates/yatzy-solver-cli", "bindings/python", 
 default-members = ["crates/yatzy-solver", "crates/yatzy-solver-cli"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/precisit/yatzy-solver"
