@@ -26,6 +26,10 @@ pip install yatzy-solver        # Python (numpy)
 npm install yatzy-solver        # JavaScript and TypeScript (WebAssembly)
 ```
 
+Prebuilt CLI binaries for Linux (x86-64), macOS (arm64) and Windows (x86-64) are attached to each release. The
+macOS binary is not notarized: use `cargo install yatzy-solver-cli`, or clear the quarantine flag after
+downloading (`xattr -d com.apple.quarantine yatzy-solver-aarch64-macos`).
+
 ## Examples
 
 Rust:
@@ -161,8 +165,8 @@ alone, the same on every platform and across versions while the values do not ch
 - Jakub Pawlewicz studied nearly optimal multiplayer play ("Nearly Optimal Computer Play in Multi-player Yahtzee",
   Computers and Games 2010).
 
-"Yahtzee" is a trademark of Hasbro. This project implements rules compatible with it and is not affiliated with
-Hasbro.
+"Yatzy" is used as the name of the game; this project is not affiliated with any trademark holder. "Yahtzee" is a
+trademark of Hasbro. This project implements rules compatible with it and is not affiliated with Hasbro.
 
 ## License
 
