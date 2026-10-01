@@ -1,0 +1,5 @@
+# GitHub Pages (Jekyll) settings for the documentation site.
+title: yatzy-solver
+description: Exact optimal play for Scandinavian Yatzy and American rules (Yahtzee-compatible)
+theme: jekyll-theme-primer
+markdown: kramdown
