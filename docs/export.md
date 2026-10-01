@@ -102,4 +102,4 @@ compression, row groups of 100 000).
 Each format has one schema; there is no compact JSON variant. For more than about 100 000 rows use Parquet.
 
 100 000 optimal rows of Scandinavian Yatzy: about 207 MB as JSON Lines, 14 MB as Parquet (142 bytes per row),
-written in under 2 s on an M1 Max under heavy load (provisional).
+written in under 2 s on a laptop.
