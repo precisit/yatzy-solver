@@ -148,6 +148,19 @@ alone, the same on every platform and across versions while the values do not ch
 - [WebAssembly and the web advisor](docs/wasm.md): the npm package, table loading, and the offline advisor.
 - [CHANGELOG](CHANGELOG.md).
 
+## Future improvements
+
+Ideas for later versions, with no dates promised:
+
+- the exact distribution of the final score under optimal play (standard deviation, percentiles and median as
+  exact values, where the simulator now gives estimates);
+- a second objective: the policy that maximizes the probability of reaching a target score, a common heuristic
+  for multiplayer endgames;
+- a C ABI, for Swift and other languages;
+- an open question: the exact fraction on Verhoeff's page (Liese and Kelly, 2017) evaluates to 254.58937, which
+  matches none of the joker rules implemented here; which rules it was computed under is not known
+  ([rules](docs/rules.md)).
+
 ## Prior work
 
 - Tom Verhoeff (1999) solved solitaire Yahtzee: expected score 254.5896, standard deviation 59.6117, median 248
