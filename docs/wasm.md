@@ -5,7 +5,9 @@ engine, queries, batch queries on typed arrays, and table loading, on one thread
 the Rust and Python packages: CI runs the golden set (`golden/parity.jsonl`, 300 situations) through the WASM
 single and batch APIs in Node, and compares with `Object.is`.
 
-The package is not published yet.
+```sh
+npm install yatzy-solver
+```
 
 ## Build
 

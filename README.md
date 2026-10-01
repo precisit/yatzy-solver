@@ -17,8 +17,6 @@ from Rust, Python and JavaScript (WebAssembly).
 
 ## Install
 
-Not yet published; the commands below are for the first release. Until then, build from this repository.
-
 ```sh
 cargo add yatzy-solver          # Rust library
 cargo install yatzy-solver-cli  # the `yatzy-solver` command

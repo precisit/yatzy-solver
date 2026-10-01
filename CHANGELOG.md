@@ -4,7 +4,7 @@ All notable changes to this project are recorded here. The project follows seman
 contracts (the notation, the action codes, the table format, the export schema, the generator, and the Python
 and npm APIs) change only with a major version; fields and functions may be added in minor versions.
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-10-01)
 
 The first release.
 

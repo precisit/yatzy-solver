@@ -6,7 +6,11 @@ library's; the golden set (`golden/parity.jsonl`) checks this.
 
 ## Install
 
-Not yet published. From a clone, with [uv](https://docs.astral.sh/uv/):
+```sh
+pip install yatzy-solver
+```
+
+From a clone, with [uv](https://docs.astral.sh/uv/):
 
 ```sh
 cd bindings/python
@@ -74,8 +78,9 @@ upper box filled, `armed` with the box open, a finished game for `option_values_
 naming the row.
 
 `codes` (int16) and `values` (float64) are `n x (C + 31)`, padded with -1 and NaN; `counts` (uint16) gives
-the options per row. About 104 000 situations per second on one thread and 256 000 on all threads, on an M1 Max
-under heavy load (provisional).
+the options per row. The binding adds no measurable overhead: the rates are those of the Rust library
+([solver](solver.md#performance-spec-52)), about 258 000 to 270 000 situations per second per core on Apple M5
+machines.
 
 ### A policy of your own
 
