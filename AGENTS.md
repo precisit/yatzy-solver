@@ -18,11 +18,15 @@ criteria, and a milestone is done only when they pass.
   median 248), Scandinavian Yatzy 248.4399894 under its stated rules, and the published 248.63 as a check that
   reproduces the scoring of its authors' code (SPEC 10.1).
 - The brute-force reference solver for reduced games must agree exactly with the fast solver.
-- Benchmarks on a laptop that is running other work are provisional: say so, and record the load.
+- Benchmarks on a machine that is running other work are provisional: say so, and record the machine and the
+  load.
 
 ## Stop and ask the owner before
 
-- making the repository public, or publishing any package (crates.io, PyPI, npm);
+- tagging a release or publishing any package (crates.io, PyPI, npm): those steps are the owner's, see
+  `RELEASE.md`;
+- changing a stable contract (the notation, the action codes, the table format, the export schema, the
+  simulator's generator, the Python and npm APIs): see `CHANGELOG.md`;
 - changing the license, the validation numbers or the acceptance criteria in `SPEC.md`;
 - adding a dependency with a license other than MIT, Apache-2.0, BSD or similar permissive terms.
 
@@ -30,7 +34,7 @@ Spec changes go in `SPEC.md` in their own commits, with a changelog line; open q
 
 ## Writing
 
-- The repository will become public: no hostnames, internal notes, secrets or personal paths in code, docs or
-  commit messages.
+- The repository is public: no hostnames, internal notes, secrets or personal paths in code, docs, commit
+  messages or pull requests.
 - Plain punctuation in docs and messages: periods, commas and hyphens; no em or en dashes.
 - Credit prior work (SPEC section 1) in the README.
