@@ -15,8 +15,8 @@ criteria, and a milestone is done only when they pass.
 ## Correctness before speed
 
 - The published values are the gate (SPEC 5.3 and M2): American rules 254.5896 (standard deviation 59.6117,
-  median 248), Scandinavian Yatzy 248.63. If Scandinavian Yatzy does not reproduce 248.63, find and document the
-  rule difference (SPEC 10.1) before tuning anything else.
+  median 248), Scandinavian Yatzy 248.4399894 under its stated rules, and the published 248.63 as a check that
+  reproduces the scoring of its authors' code (SPEC 10.1).
 - The brute-force reference solver for reduced games must agree exactly with the fast solver.
 - Benchmarks on a laptop that is running other work are provisional: say so, and record the load.
 
@@ -34,5 +34,3 @@ Spec changes go in `SPEC.md` in their own commits, with a changelog line; open q
   commit messages.
 - Plain punctuation in docs and messages: periods, commas and hyphens; no em or en dashes.
 - Credit prior work (SPEC section 1) in the README.
-
-See also `~/dev/AGENTS.md` for rules shared by all projects on this machine.
