@@ -1,0 +1,85 @@
+name: Pages
+
+# Publishes the documentation (docs/, rendered by Jekyll) at the site root and the web advisor under /advisor/.
+# The advisor's tables are built here and must match the published hashes. Pull requests build the site
+# without deploying it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "demo/**"
+      - "bindings/wasm/**"
+      - "crates/**"
+      - "release/tables.sha256"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "demo/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  WASM_PACK_VERSION: "0.15.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ env.WASM_PACK_VERSION }}-${{ runner.os }}
+      - run: command -v wasm-pack || cargo install wasm-pack --locked --version $WASM_PACK_VERSION
+      - name: Build the advisor (WASM package, tables, static files)
+        run: |
+          wasm-pack build bindings/wasm --release --target web --out-dir pkg --out-name yatzy_solver
+          node bindings/wasm/scripts/package.mjs
+          cargo build --release -p yatzy-solver-cli
+          node demo/build.mjs
+          node demo/check-manifest.mjs
+      - name: Render the documentation
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - name: Add the advisor under /advisor/
+        run: |
+          sudo mkdir -p _site/advisor
+          sudo cp -R demo/dist/. _site/advisor/
+          ls _site _site/advisor _site/advisor/tables
+          test -f _site/index.html && test -f _site/rules.html && test -f _site/advisor/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
