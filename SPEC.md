@@ -266,6 +266,9 @@ covered above:
 - **Credits** to Verhoeff, Glenn, Pawlewicz and the KTH theses.
 - **Launch:** a short write-up (the Precisit blog), crates.io, PyPI and npm, Hacker News ("Show HN"), and board-game
   and Nordic communities.
+  **Decided (owner, 2026-10-01):** the packages are published (crates.io, PyPI, npm, version 1.0.0), but there is
+  no separate write-up or announcement for 1.0. The solver will be presented together with the project that
+  uses it, when that launches.
 - **Maintenance promise:** a scope that stays small; issues and discussions open.
 
 ## 8. Milestones and acceptance
@@ -358,3 +361,6 @@ covered above:
   word; the name `yatzy-solver` is kept.
 - 2026-09-30: 9.3 settled: the names and the Nordic trademark search (owner decision).
 - 2026-10-01: 9.2 updated: the repository is made public before the first release.
+- 2026-10-01: 1.0.0 released. Section 7: the launch write-up and announcements are deferred (owner decision).
+  M7 (v1.1) is recorded as a future improvement and not started; the README lists it under "Future
+  improvements".
