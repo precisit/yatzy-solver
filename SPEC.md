@@ -283,8 +283,9 @@ covered above:
 ## 9. Decisions
 
 1. **License: MIT** (decided 2026-09-29), for the code and the prebuilt tables.
-2. **Visibility:** the repository is private for now; making it public is the owner's decision, expected once M2
-   reproduces the published values. Do not publish packages (crates.io, PyPI, npm) before that decision.
+2. **Visibility:** the repository was private during development and is made public by the owner just before
+   the first release (2026-10-01), once the published values were reproduced. Publishing the packages
+   (crates.io, PyPI, npm) is the owner's decision, through the release workflow's approval.
 3. **Names and trademarks.** "Yahtzee" is a Hasbro trademark: call that variant "American rules
    (Yahtzee-compatible)" in docs and code, and never use "Yahtzee" as a product or package name.
 
@@ -356,3 +357,4 @@ covered above:
 - 2026-09-29: 9.3, trademark check for "Yatzy" in Sweden (PRV, EUIPO, WIPO): no registration of the plain
   word; the name `yatzy-solver` is kept.
 - 2026-09-30: 9.3 settled: the names and the Nordic trademark search (owner decision).
+- 2026-10-01: 9.2 updated: the repository is made public before the first release.
