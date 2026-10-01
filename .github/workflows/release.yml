@@ -27,12 +27,12 @@ jobs:
   crates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # Packages both crates and builds each from its tarball.
       - run: cargo package --workspace --exclude yatzy-solver-python --exclude yatzy-solver-wasm
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: crates
           path: target/package/*.crate
@@ -46,13 +46,13 @@ jobs:
           - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: yatzy-solver.exe }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p yatzy-solver-cli --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.exe }}
@@ -60,7 +60,7 @@ jobs:
   tables:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p yatzy-solver-cli
@@ -72,7 +72,7 @@ jobs:
           done; done
       - name: Check them against the published hashes
         run: cd tables && sha256sum -c ../release/tables.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tables
           path: |
@@ -91,8 +91,8 @@ jobs:
           - { name: windows-x86_64, os: windows-latest, target: x64 }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - uses: PyO3/maturin-action@v1
@@ -101,7 +101,7 @@ jobs:
           target: ${{ matrix.target }}
           args: --release -m bindings/python/Cargo.toml -o dist
           manylinux: auto
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.name }}
           path: dist/*.whl
@@ -109,12 +109,12 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: -m bindings/python/Cargo.toml -o dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -122,15 +122,15 @@ jobs:
   npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/wasm-pack
           key: wasm-pack-${{ env.WASM_PACK_VERSION }}-${{ runner.os }}
@@ -138,7 +138,7 @@ jobs:
       - run: wasm-pack build bindings/wasm --release --target web --out-dir pkg --out-name yatzy_solver
       - run: node bindings/wasm/scripts/package.mjs
       - run: mkdir -p npm && cd bindings/wasm/pkg && npm pack --pack-destination ../../../npm
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: npm
           path: npm/*.tgz
@@ -158,14 +158,14 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - uses: dtolnay/rust-toolchain@stable
@@ -229,13 +229,13 @@ jobs:
           - { name: macos-x86_64, os: macos-latest }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: wheels-${{ matrix.name }}
           path: wheel
       - if: matrix.name == 'linux-aarch64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
       - if: matrix.name == 'linux-aarch64'
@@ -250,7 +250,7 @@ jobs:
       # setup-python for x64 still gave a native arm64 interpreter on arm64 runners). The assertion makes sure the
       # wheel really is tested as x86_64.
       - if: matrix.name == 'macos-x86_64'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - if: matrix.name == 'macos-x86_64'
@@ -267,8 +267,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Published versions are found, others are not, pretended ones count
@@ -320,9 +320,9 @@ jobs:
     env:
       HAS_CARGO_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: The tag matches the version
@@ -361,7 +361,7 @@ jobs:
 
       # npm: the token for the first publish; once the secret is deleted, trusted publishing (OIDC). With
       # provenance, which needs a public repository.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
