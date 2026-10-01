@@ -99,9 +99,9 @@ jobs:
         run: |
           # A new release waits in the docs.rs queue first: poll for up to 30 minutes.
           for i in $(seq 1 60); do
-            code=$(curl -sS -o builds.json -w '%{http_code}' "https://docs.rs/crate/yatzy-solver/$VERSION/builds.json")
-            if [ "$code" = 200 ] && python3 -c "import json,sys; b=json.load(open('builds.json')); sys.exit(0 if b and b[0]['build_status'] in ('success','failure') else 1)"; then break; fi
+            code=$(curl -sS -o status.json -w '%{http_code}' "https://docs.rs/crate/yatzy-solver/$VERSION/status.json")
+            if [ "$code" = 200 ]; then break; fi
             echo "not built yet (HTTP $code), waiting"; sleep 30
           done
-          cat builds.json
-          python3 -c "import json; b=json.load(open('builds.json')); assert b and b[0]['build_status'] == 'success', b"
+          cat status.json
+          python3 -c "import json; s=json.load(open('status.json')); assert s['doc_status'] is True and s['version'] == '$VERSION', s"
